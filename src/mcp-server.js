@@ -20,88 +20,8 @@ const { McpServer }           = require("@modelcontextprotocol/sdk/server/mcp.js
 const { z }                   = require("zod");
 const path                    = require("path");
 const { createRuntime }       = require("./engine");
-
-// ─── Shared agent context (Observer level — read-only by default) ─────────────
-const DEFAULT_AGENT = {
-  agent: {
-    id:                  "mcp-client",
-    role:                "Observer",
-    authorization_level: 1,
-    skill_set:           ["code-analysis", "security-audit", "refactor"],
-    read_only:           true,
-  },
-};
-
-// ─── Format findings for MCP text response ────────────────────────────────────
-function formatFindings(findings, summary) {
-  if (!findings || findings.length === 0) {
-    return "✅ No findings. Code looks clean!";
-  }
-
-  const bySev = summary?.by_severity ?? {};
-  const header = [
-    `📊 **Summary**: ${findings.length} finding(s)`,
-    Object.entries(bySev)
-      .filter(([, n]) => n > 0)
-      .map(([sev, n]) => `${sevIcon(sev)} ${sev}: ${n}`)
-      .join("  ·  "),
-    `📁 Files scanned: ${summary?.files_scanned ?? "?"}`,
-    "",
-  ].join("\n");
-
-  const lines = findings.slice(0, 50).map((f) =>
-    [
-      `${sevIcon(f.severity)} **[${f.severity}]** ${f.principle}`,
-      `   📄 ${f.file}:${f.line_start}${f.symbol ? ` (${f.symbol})` : ""}`,
-      `   💬 ${f.message}`,
-      `   💡 ${f.recommendation}`,
-      f.cwe_id ? `   🔗 ${f.cwe_id}${f.owasp_category ? ` · ${f.owasp_category}` : ""}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n")
-  );
-
-  const footer = findings.length > 50
-    ? `\n…and ${findings.length - 50} more findings. Narrow the file scope to see all.`
-    : "";
-
-  return header + lines.join("\n\n") + footer;
-}
-
-function sevIcon(sev) {
-  return { CRITICAL: "🔴", HIGH: "🟠", MEDIUM: "🟡", LOW: "🟢", INFO: "ℹ️" }[sev] ?? "⚪";
-}
-
-function toToolResponse(text, stream = false) {
-  if (!stream) return { content: [{ type: "text", text }] };
-  const lines = String(text).split("\n");
-  return {
-    content: lines.map((line, idx) => ({
-      type: "text",
-      text: `[chunk ${idx + 1}/${lines.length}] ${line}`,
-    })),
-  };
-}
-
-/**
- * Format skill execution result into a tool response
- * @param {object} result - Skill execution result with {success, error, result}
- * @param {function} formatter - Optional formatter for successful results
- * @param {boolean} stream - Whether to stream the response
- * @returns {object} MCP tool response
- */
-function formatSkillResult(result, formatter, stream = false) {
-  let text;
-  if (result.success && formatter) {
-    text = formatter(result.result);
-  } else if (result.success) {
-    text = "✅ Success";
-  } else {
-    text = `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
-  }
-  return toToolResponse(text, stream);
-}
-
+const { registerCodeAnalysisTool, registerSecurityAuditTool } = require("./mcp/tools-register");
+const { formatFindings, formatSkillResult, toToolResponse } = require("./mcp/tool-helpers");
 
 // ─── MCP Server factory ───────────────────────────────────────────────────────
 async function createMcpServer(projectRoot) {
@@ -122,82 +42,9 @@ async function createMcpServer(projectRoot) {
     return _runtime;
   }
 
-  // ── Tool 1: code_analysis ─────────────────────────────────────────────────
-  server.tool(
-    "code_analysis",
-    [
-      "Performs static code analysis on JavaScript/TypeScript and Python source files.",
-      "Checks for: Cyclomatic Complexity, DRY violations (magic numbers, structural clones),",
-      "Security-First patterns, SOLID principle adherence, and Cognitive Complexity.",
-      "Returns findings with severity (CRITICAL/HIGH/MEDIUM/LOW), file location, and fix recommendations.",
-    ].join(" "),
-    {
-      files: z
-        .array(z.string())
-        .describe('List of file paths or directories to analyze. Example: ["src/", "tests/"]'),
-      project_root: z
-        .string()
-        .optional()
-        .describe("Absolute path to the project root. Defaults to the server project root."),
-      stream: z.boolean().optional().default(false),
-    },
-    async ({ files, project_root, stream }) => {
-      try {
-        const rt = await getRuntime();
-        const result = await rt.runAgent(DEFAULT_AGENT, "code-analysis", {
-          files,
-          project_root: project_root ?? projectRoot,
-        });
-        return formatSkillResult(
-          result,
-          (r) => formatFindings(r.findings, r.summary),
-          stream
-        );
-      } catch (err) {
-        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
-      }
-    }
-  );
-
-  // ── Tool 2: security_audit ────────────────────────────────────────────────
-  server.tool(
-    "security_audit",
-    [
-      "Runs a deep OWASP Top 10 (2021) security audit on JavaScript, TypeScript, Python,",
-      "JSON, YAML, and .env files. Covers: A01 Broken Access Control, A02 Cryptographic Failures,",
-      "A03 Injection, A04 Insecure Design, A05 Misconfiguration, A06 Vulnerable Components,",
-      "A07 Auth Failures, A08 Integrity Failures, A09 Logging Failures, A10 SSRF.",
-      "Returns CWE IDs, OWASP categories, and precise fix recommendations.",
-    ].join(" "),
-    {
-      files: z
-        .array(z.string())
-        .describe(
-          'Files or directories to audit. Include config files for best results: ["src/", ".env.example", "package.json"]'
-        ),
-      project_root: z
-        .string()
-        .optional()
-        .describe("Absolute path to the project root."),
-      stream: z.boolean().optional().default(false),
-    },
-    async ({ files, project_root, stream }) => {
-      try {
-        const rt = await getRuntime();
-        const result = await rt.runAgent(DEFAULT_AGENT, "security-audit", {
-          files,
-          project_root: project_root ?? projectRoot,
-        });
-        return formatSkillResult(
-          result,
-          (r) => formatFindings(r.findings, r.summary),
-          stream
-        );
-      } catch (err) {
-        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
-      }
-    }
-  );
+  // Register code_analysis and security_audit tools
+  registerCodeAnalysisTool(server, getRuntime, projectRoot);
+  registerSecurityAuditTool(server, getRuntime, projectRoot);
 
   // ── Tool 3: refactor ──────────────────────────────────────────────────────
   server.tool(
