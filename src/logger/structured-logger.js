@@ -9,6 +9,18 @@
 const fs   = require("fs");
 const path = require("path");
 
+// ─── Constants ─────────────────────────────────────────────────────────────────
+/**
+ * ANSI color codes for terminal output.
+ * Used for colorized console logging.
+ */
+const ANSI_COLORS = {
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m',
+};
+
 /** Format today's date as YYYY-MM-DD */
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -77,14 +89,14 @@ class StructuredLogger {
     const line = JSON.stringify(sanitized) + "\n";
 
     // Console output (colorized)
-    const prefix = `[${sanitized.event_type}]`;
-    if (entry.event_type === "SECURITY_VIOLATION" || entry.event_type === "FATAL") {
-      process.stderr.write(`\x1b[31m${prefix}\x1b[0m ${JSON.stringify(entry)}\n`);
-    } else if (entry.event_type === "ERROR" || entry.event_type === "WARN") {
-      process.stderr.write(`\x1b[33m${prefix}\x1b[0m ${JSON.stringify(entry)}\n`);
-    } else {
-      process.stdout.write(`\x1b[36m${prefix}\x1b[0m ${JSON.stringify(entry)}\n`);
-    }
+     const prefix = `[${sanitized.event_type}]`;
+     if (entry.event_type === "SECURITY_VIOLATION" || entry.event_type === "FATAL") {
+       process.stderr.write(`${ANSI_COLORS.red}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
+     } else if (entry.event_type === "ERROR" || entry.event_type === "WARN") {
+       process.stderr.write(`${ANSI_COLORS.yellow}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
+     } else {
+       process.stdout.write(`${ANSI_COLORS.cyan}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
+     }
 
     // File output
     try {

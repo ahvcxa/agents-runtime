@@ -23,6 +23,13 @@ const { createRuntime }       = require("./engine");
 const { registerCodeAnalysisTool, registerSecurityAuditTool } = require("./mcp/tools-register");
 const { formatFindings, formatSkillResult, toToolResponse } = require("./mcp/tool-helpers");
 
+// ─── Constants ─────────────────────────────────────────────────────────────────
+/**
+ * Agent ID format validation pattern.
+ * Valid patterns: "orchestrator-01", "analyzer_01", "task-runner", etc.
+ */
+const AGENT_ID_PATTERN = /^[a-z0-9][a-z0-9\-_]*$/;
+
 // ─── MCP Server factory ───────────────────────────────────────────────────────
 async function createMcpServer(projectRoot) {
   const server = new McpServer({
@@ -169,7 +176,7 @@ async function createMcpServer(projectRoot) {
         const lines = [`🔍 Compliance check for agent '${agent_id}' (level ${authorization_level})`];
         let passed = true;
 
-        if (!agent_id || !/^[a-z0-9][a-z0-9\-_]*$/.test(agent_id)) {
+        if (!agent_id || !AGENT_ID_PATTERN.test(agent_id)) {
           lines.push("  ❌ Agent id is invalid (must match ^[a-z0-9][a-z0-9\\-_]*$)");
           passed = false;
         } else {

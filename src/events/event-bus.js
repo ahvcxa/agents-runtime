@@ -14,8 +14,10 @@ function generateId() {
   try {
     return randomUUID();
   } catch {
-    // Fallback (should not happen in modern Node.js)
-    throw new Error("crypto.randomUUID() not available");
+    // Fallback if crypto module unavailable (should not happen in modern Node.js 15+)
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).slice(2);
+    return `${timestamp}-${random}`;
   }
 }
 
