@@ -83,6 +83,26 @@ function toToolResponse(text, stream = false) {
   };
 }
 
+/**
+ * Format skill execution result into a tool response
+ * @param {object} result - Skill execution result with {success, error, result}
+ * @param {function} formatter - Optional formatter for successful results
+ * @param {boolean} stream - Whether to stream the response
+ * @returns {object} MCP tool response
+ */
+function formatSkillResult(result, formatter, stream = false) {
+  let text;
+  if (result.success && formatter) {
+    text = formatter(result.result);
+  } else if (result.success) {
+    text = "✅ Success";
+  } else {
+    text = `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
+  }
+  return toToolResponse(text, stream);
+}
+
+
 // ─── MCP Server factory ───────────────────────────────────────────────────────
 async function createMcpServer(projectRoot) {
   const server = new McpServer({
@@ -128,10 +148,11 @@ async function createMcpServer(projectRoot) {
           files,
           project_root: project_root ?? projectRoot,
         });
-        const text = result.success
-          ? formatFindings(result.result.findings, result.result.summary)
-          : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
-        return toToolResponse(text, stream);
+        return formatSkillResult(
+          result,
+          (r) => formatFindings(r.findings, r.summary),
+          stream
+        );
       } catch (err) {
         return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }
@@ -167,10 +188,11 @@ async function createMcpServer(projectRoot) {
           files,
           project_root: project_root ?? projectRoot,
         });
-        const text = result.success
-          ? formatFindings(result.result.findings, result.result.summary)
-          : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
-        return toToolResponse(text, stream);
+        return formatSkillResult(
+          result,
+          (r) => formatFindings(r.findings, r.summary),
+          stream
+        );
       } catch (err) {
         return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }

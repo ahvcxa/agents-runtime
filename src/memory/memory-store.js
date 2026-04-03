@@ -170,6 +170,11 @@ function createPersistenceAdapter(settings, agentId, projectRoot) {
 }
 
 class MemoryStoreClient {
+  // Constants
+  static MS_PER_SECOND = 1000;
+  static DEFAULT_READ_MIN_LEVEL = 1;
+  static DEFAULT_WRITE_MIN_LEVEL = 1;
+
   constructor(settings, authLevel, agentId, adapter) {
     this.settings = settings?.memory ?? {};
     this.authLevel = authLevel;
@@ -191,20 +196,22 @@ class MemoryStoreClient {
     return null;
   }
 
-  _assertRead(key) {
+  _assertAuthLevel(key, operation) {
     const rule = this._resolveRule(key);
-    const minLevel = rule?.read_min_level ?? 1;
+    const minLevel = operation === "write" 
+      ? rule?.write_min_level ?? 1
+      : rule?.read_min_level ?? 1;
     if (this.authLevel < minLevel) {
-      throw new Error(`[memory] Agent '${this.agentId}' lacks read permission for '${key}'`);
+      throw new Error(`[memory] Agent '${this.agentId}' lacks ${operation} permission for '${key}'`);
     }
   }
 
+  _assertRead(key) {
+    this._assertAuthLevel(key, "read");
+  }
+
   _assertWrite(key) {
-    const rule = this._resolveRule(key);
-    const minLevel = rule?.write_min_level ?? 1;
-    if (this.authLevel < minLevel) {
-      throw new Error(`[memory] Agent '${this.agentId}' lacks write permission for '${key}'`);
-    }
+    this._assertAuthLevel(key, "write");
   }
 
   _isExpired(key) {
@@ -230,18 +237,18 @@ class MemoryStoreClient {
     this._assertWrite(key);
     const ttl = options.ttl_seconds ?? this.settings.ttl_default_seconds ?? 3600;
     const tags = options.tags ?? [];
-    const entry = {
-      value,
-      _tags: tags,
-      _written_at: new Date().toISOString(),
-      _agent: this.agentId,
-    };
-    const existing = this.adapter.get(key);
-    if (existing?._tags) this._unindexTags(key, existing._tags);
-    this._indexTags(key, tags);
-    this.ttlMap.set(key, Date.now() + ttl * 1000);
-    this.adapter.upsert(key, entry);
-  }
+     const entry = {
+       value,
+       _tags: tags,
+       _written_at: new Date().toISOString(),
+       _agent: this.agentId,
+     };
+     const existing = this.adapter.get(key);
+     if (existing?._tags) this._unindexTags(key, existing._tags);
+     this._indexTags(key, tags);
+     this.ttlMap.set(key, Date.now() + ttl * MemoryStoreClient.MS_PER_SECOND);
+     this.adapter.upsert(key, entry);
+   }
 
   get(key) {
     this._assertRead(key);
