@@ -16,6 +16,7 @@ const { EventBus }       = require("./events/event-bus");
 const { HookRegistry }   = require("./registry/hook-registry");
 const { SkillRegistry }  = require("./registry/skill-registry");
 const { AgentRunner }    = require("./agent-runner");
+const { createTracer }   = require("./telemetry/tracer");
 
 class AgentRuntime {
   /**
@@ -45,6 +46,7 @@ class AgentRuntime {
     // 2. Boot infrastructure
     this.logger   = new StructuredLogger(this.settings, this.projectRoot);
     this.eventBus = new EventBus(this.logger);
+    this.tracer = createTracer("agents-runtime");
 
     this.logger.log({
       event_type: "INFO",
@@ -88,6 +90,14 @@ class AgentRuntime {
     });
   }
 
+  async checkNetworkAccess(context) {
+    this._assertReady();
+    return this.hookRegistry.dispatch("before_network_access", {
+      ...context,
+      settings: this.settings,
+    });
+  }
+
   /** List all registered hooks */
   listHooks() {
     this._assertReady();
@@ -104,6 +114,11 @@ class AgentRuntime {
   onEvent(eventType, handler) {
     this._assertReady();
     this.eventBus.subscribe(eventType, handler);
+  }
+
+  delegateTask(fromAgentId, toAgentId, task) {
+    this._assertReady();
+    return this.eventBus.delegateTask(fromAgentId, toAgentId, task);
   }
 
   /** Get recent event history */

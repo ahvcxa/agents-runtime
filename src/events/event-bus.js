@@ -64,6 +64,27 @@ class EventBus extends EventEmitter {
     this.on(eventType, handler);
   }
 
+  sendMessage(message) {
+    return this.dispatch({
+      event_type: "AgentMessage",
+      ...message,
+    });
+  }
+
+  delegateTask(fromAgentId, toAgentId, task) {
+    return this.dispatch({
+      event_type: "TaskDelegated",
+      from: fromAgentId,
+      to: toAgentId,
+      context_boundary: "Orchestration",
+      payload: {
+        task_id: generateId(),
+        task,
+        status: "delegated",
+      },
+    });
+  }
+
   /** Get recent event history */
   history(limit = 50) {
     return this._history.slice(-limit);

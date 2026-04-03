@@ -56,4 +56,22 @@ describe("AgentRuntime", () => {
     const rt = new AgentRuntime({ projectRoot: PROJECT_ROOT });
     expect(() => rt.listSkills()).toThrow("not initialized");
   });
+
+  test("delegates task via event bus", () => {
+    const evt = runtime.delegateTask("orchestrator-01", "executor-01", {
+      action: "run-skill",
+      skill: "code-analysis",
+    });
+    expect(evt.event_type).toBe("TaskDelegated");
+    expect(evt.from).toBe("orchestrator-01");
+    expect(evt.to).toBe("executor-01");
+  });
+
+  test("checkNetworkAccess enforces hooks", async () => {
+    await expect(runtime.checkNetworkAccess({
+      agent_id: "observer-01",
+      auth_level: 1,
+      url: "https://api.example.com/v1",
+    })).rejects.toThrow("SECURITY_VIOLATION");
+  });
 });
