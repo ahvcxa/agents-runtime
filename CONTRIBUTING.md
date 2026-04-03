@@ -10,7 +10,7 @@ Thank you for your interest in contributing! This document explains how to get s
 git clone https://github.com/ahvcxa/agents-runtime.git
 cd agents-runtime
 npm install
-npm test        # Run the test suite (18 tests, ~0.2s)
+npm test        # Run the test suite (21 tests, ~0.5s)
 ```
 
 ---
@@ -25,9 +25,9 @@ npm test        # Run the test suite (18 tests, ~0.2s)
 | `src/analyzers/` | Language-specific analyzers (JS, Python) |
 | `src/registry/` | Hook and skill registries |
 | `src/memory/` | ACL-backed memory store |
-| `tests/` | Jest test suites |
+| `tests/` | Jest test suites + isolated fixture project |
 
-The `.agents/` template lives in the companion `agents-template/` directory and is what `setup-agents.sh` installs into user projects.
+The `.agents/` template lives in the `template/` directory and is what `setup-agents.sh` installs into user projects.
 
 ---
 

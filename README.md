@@ -46,7 +46,7 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 | 🔒 **Security Hooks** | `pre-read` hook enforces path traversal protection at framework level |
 | 📋 **ACL Memory** | Authorization-level-based memory namespaces (Observer / Executor / Orchestrator) |
 | 📦 **Zero Config** | One script installs the full `.agents/` config into any existing project |
-| ✅ **18 Tests** | Jest test suite covering engine, hooks, and memory layers |
+| ✅ **21 Tests** | Jest test suite covering engine, hooks, memory, MCP server, and manifest validation |
 
 ---
 
@@ -121,7 +121,8 @@ node bin/agents.js run \
 agents-runtime/              ← repo root
 ├── setup-agents.sh          ← one-command installer
 ├── bin/
-│   └── agents.js            # CLI entry point
+│   ├── agents.js            # CLI entry point
+│   └── mcp.js               # MCP server entry point
 ├── src/
 │   ├── engine.js            # AgentRuntime — central orchestrator
 │   ├── agent-runner.js      # Skill lifecycle pipeline
@@ -165,7 +166,10 @@ agents-runtime/              ← repo root
 └── tests/
     ├── engine.test.js
     ├── hook-registry.test.js
-    └── memory-store.test.js
+    ├── memory-store.test.js
+    ├── mcp-server.test.js
+    ├── manifest-loader.test.js
+    └── fixtures/project/    # isolated runtime fixture project for deterministic tests
 ```
 
 
@@ -346,9 +350,9 @@ npm test
 ```
 
 ```
-Test Suites: 3 passed, 3 total
-Tests:       18 passed, 18 total
-Time:        ~0.2s
+Test Suites: 5 passed, 5 total
+Tests:       21 passed, 21 total
+Time:        ~0.5s
 ```
 
 ---

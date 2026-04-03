@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Hardened MCP compliance output and refactor patch formatting to match runtime patch schema.
+- Added stricter manifest validation for hook and skill definitions (`id`, `path`, `fires`, array shape checks).
+- Isolated runtime tests from repository root by introducing a dedicated fixture project under `tests/fixtures/project`.
+
+### Tests
+
+- Expanded coverage from 18 tests / 3 suites to 21 tests / 5 suites.
+- Added `tests/mcp-server.test.js` and `tests/manifest-loader.test.js`.
+
+---
+
 ## [1.0.0] — 2024-04-03
 
 ### Added
@@ -35,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JavaScript / TypeScript / JSX / TSX / MJS / CJS
 - **Python** — full 5-principle analysis via `src/analyzers/python-analyzer.js`
 
-#### Template (`agents-template/`)
+#### Template (`template/`)
 - `setup-agents.sh` — one-command installer for any project
 - `pre-read.hook.js` — path traversal + forbidden pattern enforcement
 - `skill-lifecycle.hook.js` — pre-skill / post-skill lifecycle events with memory locking
