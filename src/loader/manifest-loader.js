@@ -10,6 +10,41 @@ const path = require("path");
 
 const REQUIRED_KEYS = ["spec_version", "entry_points", "hooks", "skills"];
 
+function assertString(value, label) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`[manifest-loader] ${label} must be a non-empty string`);
+  }
+}
+
+function validateHookDefs(hooks) {
+  if (!Array.isArray(hooks)) {
+    throw new Error("[manifest-loader] manifest.json 'hooks' must be an array");
+  }
+
+  hooks.forEach((hook, idx) => {
+    if (!hook || typeof hook !== "object") {
+      throw new Error(`[manifest-loader] hooks[${idx}] must be an object`);
+    }
+    assertString(hook.id, `hooks[${idx}].id`);
+    assertString(hook.path, `hooks[${idx}].path`);
+    assertString(hook.fires, `hooks[${idx}].fires`);
+  });
+}
+
+function validateSkillDefs(skills) {
+  if (!Array.isArray(skills)) {
+    throw new Error("[manifest-loader] manifest.json 'skills' must be an array");
+  }
+
+  skills.forEach((skill, idx) => {
+    if (!skill || typeof skill !== "object") {
+      throw new Error(`[manifest-loader] skills[${idx}] must be an object`);
+    }
+    assertString(skill.id, `skills[${idx}].id`);
+    assertString(skill.path, `skills[${idx}].path`);
+  });
+}
+
 /**
  * Load and validate the agent manifest.
  * @param {string} projectRoot - Absolute path to the project root.
@@ -34,6 +69,9 @@ function loadManifest(projectRoot) {
   if (missing.length > 0) {
     throw new Error(`[manifest-loader] manifest.json is missing required keys: ${missing.join(", ")}`);
   }
+
+  validateHookDefs(manifest.hooks);
+  validateSkillDefs(manifest.skills);
 
   // Resolve hook paths to absolute
   manifest.hooks = manifest.hooks.map((hook) => ({
