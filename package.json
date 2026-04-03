@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node bin/agents.js",
     "mcp": "node bin/mcp.js",
+    "inject-role": "node bin/inject-role.js",
+    "postinstall": "node bin/inject-role.js",
     "test": "jest --testPathPattern=tests/",
     "test:watch": "jest --watch --testPathPattern=tests/",
     "test:coverage": "jest --testPathPattern=tests/ --coverage",
