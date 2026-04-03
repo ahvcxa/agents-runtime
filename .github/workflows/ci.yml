@@ -38,11 +38,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
       - name: Check for syntax errors
-        run: node --check bin/agents.js src/**/*.js
+        run: |
+          node --check bin/agents.js
+          node --check bin/mcp.js
+          for f in src/*.js src/**/*.js; do
+            [ -f "$f" ] && node --check "$f"
+          done
 
   smoke-test:
     name: Smoke Test (CLI)
@@ -52,29 +57,29 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
 
-      - name: Clone template
+      - name: Install template into test project
         run: |
-          # The template is in the agents-template directory alongside the runtime
-          # For CI we use the examples directory directly
-          echo "agents-template available via examples/"
+          mkdir -p /tmp/ci-test-project
+          bash setup-agents.sh /tmp/ci-test-project
+          ls /tmp/ci-test-project/.agents/
 
       - name: agents list
-        run: node bin/agents.js list --project examples/
+        run: node bin/agents.js list --project /tmp/ci-test-project
 
       - name: agents check (observer)
         run: |
           node bin/agents.js check \
             --config examples/observer-agent.yaml \
-            --project examples/
+            --project /tmp/ci-test-project
 
-      - name: agents run (code-analysis)
+      - name: agents run (code-analysis on src/)
         run: |
           node bin/agents.js run \
             --config examples/observer-agent.yaml \
             --skill code-analysis \
-            --input '{"files":["src/"],"project_root":"./"}' \
-            --project examples/ 2>&1 | grep -E '(Status:|files_scanned)'
+            --input "{\"files\":[\"src/\"],\"project_root\":\"$(pwd)\"}" \
+            --project /tmp/ci-test-project 2>&1 | grep -E '(Status:|files_scanned|findings)'
