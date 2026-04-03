@@ -42,7 +42,22 @@ class SkillRegistry {
 
     for (const skillDir of dirs) {
       if (this._index.has(skillDir)) continue; // already registered via manifest
+      
+      // Validate skill directory name (CWE-22: Path Traversal prevention)
+      if (!skillDir.match(/^[a-z0-9][a-z0-9_-]*$/i)) {
+        this.logger?.warn({ event_type: "WARN", message: `Invalid skill directory name: '${skillDir}' (skipped)` });
+        continue;
+      }
+      
+      // Check for path traversal attacks
       const skillMdPath = path.join(registryPath, skillDir, "SKILL.md");
+      const resolved = path.resolve(skillMdPath);
+      const base = path.resolve(registryPath);
+      if (!resolved.startsWith(base)) {
+        this.logger?.warn({ event_type: "WARN", message: `Path traversal detected in skill directory: '${skillDir}' (skipped)` });
+        continue;
+      }
+      
       if (fs.existsSync(skillMdPath)) {
         this._index.set(skillDir, {
           def: {

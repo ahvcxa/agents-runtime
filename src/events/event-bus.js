@@ -7,13 +7,15 @@
  */
 
 const { EventEmitter } = require("events");
+const { randomUUID } = require("crypto");
 
 // Simple UUID generator that works without external deps
 function generateId() {
   try {
-    return require("crypto").randomUUID();
+    return randomUUID();
   } catch {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    // Fallback (should not happen in modern Node.js)
+    throw new Error("crypto.randomUUID() not available");
   }
 }
 

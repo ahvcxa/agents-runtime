@@ -1,12 +1,14 @@
 "use strict";
 
+const { randomUUID } = require("crypto");
+
 function createTracer(serviceName = "agents-runtime") {
   try {
     const api = require("@opentelemetry/api");
     const tracer = api.trace.getTracer(serviceName);
     return {
       traceId() {
-        return `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        return randomUUID();
       },
       startSpan(name, attrs = {}) {
         const span = tracer.startSpan(name);
@@ -20,7 +22,7 @@ function createTracer(serviceName = "agents-runtime") {
   } catch {
     return {
       traceId() {
-        return `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        return randomUUID();
       },
       startSpan(_name, _attrs = {}) {
         return {

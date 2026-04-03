@@ -12,6 +12,7 @@ const fsp        = require("fs/promises");
 const { execFile } = require("child_process");
 const os         = require("os");
 const { promisify } = require("util");
+const { randomUUID } = require("crypto");
 const { executeInSandbox } = require("./sandbox/executor");
 
 const execFileAsync = promisify(execFile);
@@ -134,8 +135,15 @@ class AgentRunner {
       return;
     }
 
+    // Validate checkerPath (CWE-78: Command Injection prevention)
+    const resolved = path.resolve(checkerPath);
+    const allowedBase = path.resolve(this.projectRoot, ".agents", "helpers");
+    if (!resolved.startsWith(allowedBase)) {
+      throw new Error("[compliance] Invalid checker path detected (path traversal)");
+    }
+
     // Write agent config to a temp file
-    const tmpFile = path.join(os.tmpdir(), `agent-config-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    const tmpFile = path.join(os.tmpdir(), `agent-config-${randomUUID()}.json`);
     await fsp.writeFile(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "spec_version": "1.0.0",
+  "description": "Agent configuration manifest. Any AI agent runtime should read this file first to discover the full configuration structure of this project.",
+
+  "entry_points": {
+    "contract":  ".agents/AGENT_CONTRACT.md",
+    "settings":  ".agents/settings.json"
+  },
+
+  "suppression_syntax": "// agent-suppress: <suppression_key> reason=\"<justification>\"",
+
+  "hooks": [
+    {
+      "id":          "pre-read",
+      "path":        ".agents/hooks/pre-read.hook.js",
+      "fires":       "before_filesystem_read",
+      "description": "Validates file path against forbidden_file_patterns blocklist. Throws SecurityViolationError on match.",
+      "required":    true
+    },
+    {
+      "id":          "pre-network",
+      "path":        ".agents/hooks/pre-network.hook.js",
+      "export":      "preNetworkHook",
+      "fires":       "before_network_access",
+      "description": "Validates outbound network requests against allow-list and authorization level.",
+      "required":    true
+    },
+    {
+      "id":          "pre-skill",
+      "path":        ".agents/hooks/skill-lifecycle.hook.js",
+      "export":      "preSkillHook",
+      "fires":       "before_skill_execution",
+      "description": "Authorization check, input sanitization, distributed lock acquisition, SKILL_START event emission.",
+      "required":    true
+    },
+    {
+      "id":          "post-skill",
+      "path":        ".agents/hooks/skill-lifecycle.hook.js",
+      "export":      "postSkillHook",
+      "fires":       "after_skill_execution",
+      "description": "Lock release, result caching, SKILL_END event emission, output domain event dispatch.",
+      "required":    true
+    }
+  ],
+
+  "helpers": [
+    {
+      "id":          "compliance-check",
+      "path":        ".agents/helpers/compliance-check.js",
+      "description": "Startup validator. Agents MUST run this before executing any skill.",
+      "usage":       "node .agents/helpers/compliance-check.js --agent-config ./agent.yaml",
+      "required":    true
+    },
+    {
+      "id":          "memory-client",
+      "path":        ".agents/helpers/memory-client.js",
+      "export":      "CrossAgentMemoryClient",
+      "description": "Typed, access-controlled cross-agent shared memory interface.",
+      "required":    false
+    }
+  ],
+
+  "skills": [
+    {
+      "id":                      "code-analysis",
+      "path":                    ".agents/skills/code-analysis/SKILL.md",
+      "version":                 "1.2.0",
+      "authorization_required_level": 1,
+      "bounded_context":         "Analysis",
+      "output_event":            "AnalysisCompleted",
+      "read_only":               true,
+      "description":             "Static analysis: cyclomatic complexity, DRY, security-first, SOLID, cognitive complexity."
+    },
+    {
+      "id":                      "security-audit",
+      "path":                    ".agents/skills/security-audit/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 1,
+      "bounded_context":         "Analysis",
+      "output_event":            "SecurityAuditCompleted",
+      "read_only":               true,
+      "description":             "OWASP Top 10 deep scan."
+    },
+    {
+      "id":                      "refactor",
+      "path":                    ".agents/skills/refactor/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 2,
+      "bounded_context":         "Transformation",
+      "output_event":            "RefactoringProposed",
+      "read_only":               false,
+      "description":             "Consumes auto_fixable findings and produces unified diff patches."
+    }
+  ],
+
+  "agent_identity_schema": {
+    "description": "Every agent MUST declare this structure at initialization.",
+    "required_fields": ["id", "role", "authorization_level"],
+    "fields": {
+      "id":                  { "type": "string", "pattern": "^[a-z0-9][a-z0-9\\-_]*$" },
+      "role":                { "type": "string", "enum": ["Observer", "Executor", "Orchestrator"] },
+      "skill_set":           { "type": "array",  "items": { "type": "string" } },
+      "authorization_level": { "type": "integer","enum": [1, 2, 3] },
+      "read_only":           { "type": "boolean" },
+      "read_paths":          { "type": "array",  "items": { "type": "string" } }
+    }
+  },
+
+  "finding_schema": {
+    "description": "Standard output object produced by analysis skills.",
+    "fields": {
+      "id":              { "type": "string",  "description": "uuid-v4" },
+      "skill":           { "type": "string" },
+      "principle":       { "type": "string" },
+      "severity":        { "type": "string",  "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+      "file":            { "type": "string",  "description": "Relative path from project root" },
+      "line_start":      { "type": "integer" },
+      "line_end":        { "type": "integer" },
+      "symbol":          { "type": "string",  "description": "Function or class name" },
+      "message":         { "type": "string" },
+      "recommendation":  { "type": "string" },
+      "cwe_id":          { "type": "string",  "description": "e.g. CWE-89" },
+      "owasp_category":  { "type": "string",  "description": "e.g. A03:2021" },
+      "auto_fixable":    { "type": "boolean" },
+      "suppression_key": { "type": "string" }
+    }
+  }
+}
