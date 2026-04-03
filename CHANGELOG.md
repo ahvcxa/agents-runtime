@@ -9,16 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Introduced an adapter-based memory architecture in `src/memory/memory-store.js` with pluggable backends:
+  - `InProcessMemoryDriver`
+  - `FileMemoryDriver`
+  - `RedisMemoryDriver` (scaffold)
+  - `PostgresMemoryDriver` (scaffold)
+  - `VectorMemoryDriver` (scaffold)
+- Added sandbox execution orchestration in `src/sandbox/executor.js` with strategy selection (`process`, `docker`, `wasm`) and timeout protection.
+- Added `pre-network` security hook support to enforce outbound endpoint allowlisting and authorization policy:
+  - `template/hooks/pre-network.hook.js`
+  - `before_network_access` lifecycle wiring in manifest and runtime hooks.
+- Added multi-agent communication extensions on the event bus:
+  - `sendMessage(...)`
+  - `delegateTask(...)` producing `TaskDelegated` domain events.
+- Added OpenTelemetry-compatible tracing bootstrap with graceful no-op fallback in `src/telemetry/tracer.js`.
+- Added report export subsystem in `src/report/exporter.js` with JSON, HTML, and PDF outputs.
+- Added CLI export support to `agents run`:
+  - `--export <path>`
+  - `--format <json|html|pdf>`
+
 ### Changed
 
 - Hardened MCP compliance output and refactor patch formatting to match runtime patch schema.
 - Added stricter manifest validation for hook and skill definitions (`id`, `path`, `fires`, array shape checks).
 - Isolated runtime tests from repository root by introducing a dedicated fixture project under `tests/fixtures/project`.
+- Extended runtime defaults to include sandbox configuration and backend-specific memory sections (`redis`, `postgres`, `vector`).
+- Updated template and fixture manifests/settings to include `pre-network` and network policy examples.
 
 ### Tests
 
-- Expanded coverage from 18 tests / 3 suites to 21 tests / 5 suites.
+- Expanded coverage from 18 tests / 3 suites to 35 tests / 8 suites.
 - Added `tests/mcp-server.test.js` and `tests/manifest-loader.test.js`.
+- Added `tests/event-bus.test.js`, `tests/exporter.test.js`, and `tests/sandbox.test.js`.
+- Extended existing engine, hook, and memory test suites for delegation, network gating, and adapter backend selection.
 
 ---
 
