@@ -8,7 +8,7 @@
 const { createMemoryStore } = require("../src/memory/memory-store");
 const path = require("path");
 
-const PROJECT_ROOT = path.resolve(__dirname, "../../agents-template");
+const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 const BASE_SETTINGS = {
   memory: {

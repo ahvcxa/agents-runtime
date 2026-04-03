@@ -9,7 +9,7 @@ const path = require("path");
 const { AgentRuntime } = require("../src/engine");
 
 // Point to the sibling template project
-const PROJECT_ROOT = path.resolve(__dirname, "./fixtures");
+const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 describe("AgentRuntime", () => {
   let runtime;
