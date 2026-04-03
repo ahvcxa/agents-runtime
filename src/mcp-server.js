@@ -17,7 +17,6 @@
  */
 
 const { McpServer }           = require("@modelcontextprotocol/sdk/server/mcp.js");
-const { StdioServerTransport } = require("@modelcontextprotocol/sdk/server/stdio.js");
 const { z }                   = require("zod");
 const path                    = require("path");
 const { createRuntime }       = require("./engine");
@@ -119,7 +118,7 @@ async function createMcpServer(projectRoot) {
         });
         const text = result.success
           ? formatFindings(result.result.findings, result.result.summary)
-          : `❌ Error: ${result.error}`;
+          : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
         return { content: [{ type: "text", text }] };
       } catch (err) {
         return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
@@ -157,7 +156,7 @@ async function createMcpServer(projectRoot) {
         });
         const text = result.success
           ? formatFindings(result.result.findings, result.result.summary)
-          : `❌ Error: ${result.error}`;
+          : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
         return { content: [{ type: "text", text }] };
       } catch (err) {
         return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };

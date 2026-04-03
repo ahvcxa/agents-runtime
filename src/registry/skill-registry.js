@@ -71,6 +71,7 @@ class SkillRegistry {
     if (!record.loaded) {
       try {
         const { frontmatter, content } = loadSkillMd(record.def.absolutePath);
+        validateSkillFrontmatter(frontmatter, skillId);
         record.frontmatter = { ...record.def, ...frontmatter }; // merge manifest def + SKILL.md frontmatter
         record.content     = content;
         record.loaded      = true;
@@ -81,7 +82,7 @@ class SkillRegistry {
       }
     }
 
-    return record.frontmatter;
+    return { ...record.frontmatter, content: record.content };
   }
 
   /**
@@ -106,6 +107,24 @@ class SkillRegistry {
     if (!record) return false;
     const required = record.def.authorization_required_level ?? 1;
     return authLevel >= required;
+  }
+
+  /**
+   * Load and authorize a skill in one call.
+   * @param {string} skillId
+   * @param {number} authLevel
+   * @returns {object}
+   */
+  load(skillId, authLevel) {
+    const skill = this.getSkill(skillId);
+    if (!skill) {
+      throw new Error(`Skill '${skillId}' is not registered`);
+    }
+    if (!this.canExecute(skillId, authLevel)) {
+      const required = skill.authorization_required_level ?? 1;
+      throw new Error(`Skill '${skillId}' requires authorization level ${required}`);
+    }
+    return skill;
   }
 }
 

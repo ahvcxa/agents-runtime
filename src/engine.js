@@ -116,6 +116,7 @@ class AgentRuntime {
   async shutdown() {
     this.logger?.log({ event_type: "INFO", message: "AgentRuntime shutting down..." });
     await this.hookRegistry.dispatch("on_shutdown", { settings: this.settings });
+    this.runner?.clearActiveTimers?.();
     this._ready = false;
   }
 

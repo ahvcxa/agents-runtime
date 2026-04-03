@@ -9,6 +9,7 @@
 const path       = require("path");
 const fs         = require("fs");
 const { execFileSync } = require("child_process");
+const os         = require("os");
 
 class AgentRunner {
   /**
@@ -22,6 +23,7 @@ class AgentRunner {
     this.logger       = runtime.logger;
     this.settings     = runtime.settings;
     this.projectRoot  = runtime.projectRoot;
+    this._activeTimers = new Set();
   }
 
   /**
@@ -33,8 +35,23 @@ class AgentRunner {
    */
   async run(agentConfig, skillId, input = {}) {
     const agent     = agentConfig.agent;
+    if (!agent || typeof agent !== "object") {
+      throw new Error("[agent-runner] Invalid agent config: missing 'agent' object");
+    }
+
     const agentId   = agent.id;
     const authLevel = parseInt(agent.authorization_level, 10);
+    const skillSet  = Array.isArray(agent.skill_set) ? agent.skill_set : [];
+
+    if (!agentId) {
+      throw new Error("[agent-runner] Invalid agent config: 'agent.id' is required");
+    }
+    if (!Number.isInteger(authLevel) || authLevel < 1 || authLevel > 3) {
+      throw new Error("[agent-runner] Invalid agent config: 'authorization_level' must be an integer between 1 and 3");
+    }
+    if (skillSet.length > 0 && !skillSet.includes(skillId)) {
+      throw new Error(`[agent-runner] Agent '${agentId}' is not allowed to execute skill '${skillId}' (not in skill_set)`);
+    }
 
     this.logger.log({ event_type: "INFO", message: `Starting agent '${agentId}' → skill '${skillId}'` });
 
@@ -46,10 +63,15 @@ class AgentRunner {
     if (!skillManifest) {
       throw new Error(`[agent-runner] Skill '${skillId}' not found in registry`);
     }
+    if (!this.skillRegistry.canExecute(skillId, authLevel)) {
+      const requiredLevel = skillManifest.authorization_required_level ?? 1;
+      throw new Error(`[agent-runner] Authorization denied: skill '${skillId}' requires level ${requiredLevel}, agent has level ${authLevel}`);
+    }
 
     // 3. Create memory client for this agent
     const { createMemoryStore } = require("./memory/memory-store");
     const memory = createMemoryStore(this.settings, authLevel, agentId, this.projectRoot);
+    this._trackMemoryTimer(memory);
 
     // Bind logger and emitter for hooks
     const log  = (entry) => this.logger.log(entry);
@@ -89,7 +111,12 @@ class AgentRunner {
       result, success, duration_ms, memory, skill_manifest: skillManifest, log, emit,
     });
 
-    return { success, result, duration_ms };
+    return {
+      success,
+      result,
+      error: success ? undefined : result.error,
+      duration_ms,
+    };
   }
 
   /** Run the compliance-check.js helper as a subprocess */
@@ -101,7 +128,7 @@ class AgentRunner {
     }
 
     // Write agent config to a temp file
-    const tmpFile = path.join(require("os").tmpdir(), `agent-config-${Date.now()}.json`);
+    const tmpFile = path.join(os.tmpdir(), `agent-config-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {
@@ -116,6 +143,18 @@ class AgentRunner {
     } finally {
       try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
     }
+  }
+
+  _trackMemoryTimer(memoryClient) {
+    const timer = memoryClient?._persistTimer;
+    if (timer) this._activeTimers.add(timer);
+  }
+
+  clearActiveTimers() {
+    for (const timer of this._activeTimers) {
+      clearInterval(timer);
+    }
+    this._activeTimers.clear();
   }
 
   /**
