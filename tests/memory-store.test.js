@@ -8,7 +8,7 @@
 const { createMemoryStore } = require("../src/memory/memory-store");
 const path = require("path");
 
-const PROJECT_ROOT = path.resolve(__dirname, "..");
+const PROJECT_ROOT = path.resolve(__dirname, "fixtures/project");
 
 const BASE_SETTINGS = {
   memory: {

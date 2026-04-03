@@ -9,7 +9,7 @@ const path = require("path");
 const { HookRegistry } = require("../src/registry/hook-registry");
 const { loadSettings } = require("../src/loader/settings-loader");
 
-const PROJECT_ROOT = path.resolve(__dirname, "..");
+const PROJECT_ROOT = path.resolve(__dirname, "fixtures/project");
 
 // Minimal logger that doesn't write to disk
 const nullLogger = { log: () => {}, warn: () => {}, error: () => {}, info: () => {}, audit: () => {} };

@@ -1,0 +1,52 @@
+{
+  "spec_version": "1.0.0",
+  "entry_points": {
+    "contract": ".agents/AGENT_CONTRACT.md",
+    "settings": ".agents/settings.json"
+  },
+  "hooks": [
+    {
+      "id": "pre-read",
+      "path": ".agents/hooks/pre-read.hook.js",
+      "fires": "before_filesystem_read",
+      "required": true
+    },
+    {
+      "id": "pre-skill",
+      "path": ".agents/hooks/skill-lifecycle.hook.js",
+      "export": "preSkillHook",
+      "fires": "before_skill_execution",
+      "required": true
+    },
+    {
+      "id": "post-skill",
+      "path": ".agents/hooks/skill-lifecycle.hook.js",
+      "export": "postSkillHook",
+      "fires": "after_skill_execution",
+      "required": true
+    }
+  ],
+  "skills": [
+    {
+      "id": "code-analysis",
+      "path": ".agents/skills/code-analysis/SKILL.md",
+      "version": "1.2.0",
+      "authorization_required_level": 1,
+      "read_only": true
+    },
+    {
+      "id": "security-audit",
+      "path": ".agents/skills/security-audit/SKILL.md",
+      "version": "1.0.0",
+      "authorization_required_level": 1,
+      "read_only": true
+    },
+    {
+      "id": "refactor",
+      "path": ".agents/skills/refactor/SKILL.md",
+      "version": "1.0.0",
+      "authorization_required_level": 2,
+      "read_only": false
+    }
+  ]
+}

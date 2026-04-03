@@ -1,0 +1,56 @@
+{
+  "runtime": {
+    "environment": "test",
+    "agent_timeout_seconds": 30
+  },
+  "memory": {
+    "enabled": true,
+    "backend": "in-process",
+    "ttl_default_seconds": 3600,
+    "access_control": {
+      "rules": [
+        { "namespace_pattern": "agent:*:state", "read_min_level": 1, "write_min_level": 2 },
+        { "namespace_pattern": "skill:*:cache:*", "read_min_level": 1, "write_min_level": 1 },
+        { "namespace_pattern": "pipeline:*", "read_min_level": 1, "write_min_level": 3 }
+      ]
+    },
+    "persistence": {
+      "enabled": false
+    }
+  },
+  "skills": {
+    "registry_path": ".agents/skills/",
+    "auto_discover": true
+  },
+  "security": {
+    "forbidden_file_patterns": [
+      ".env",
+      ".env.*",
+      "*.env",
+      "secrets/",
+      "**/secrets/**",
+      "credentials/",
+      "**/credentials/**",
+      "*.pem",
+      "*.key",
+      "id_rsa",
+      "id_ed25519"
+    ],
+    "input_sanitization": {
+      "enabled": true,
+      "max_input_length": 100000,
+      "reject_null_bytes": true,
+      "reject_path_traversal": true
+    }
+  },
+  "logging": {
+    "output_path": ".agents/logs/agent-{date}.jsonl",
+    "verbosity_mode": "silent",
+    "modes": {
+      "silent": { "allowed_event_types": ["FATAL", "SECURITY_VIOLATION"] },
+      "standard": { "allowed_event_types": ["FATAL", "SECURITY_VIOLATION", "ERROR", "WARN", "SKILL_START", "SKILL_END", "HOOK_FIRE", "AUDIT", "INFO"] },
+      "verbose": { "allowed_event_types": ["FATAL", "SECURITY_VIOLATION", "ERROR", "WARN", "SKILL_START", "SKILL_END", "HOOK_FIRE", "AUDIT", "INFO", "DEBUG", "MEMORY_READ", "MEMORY_WRITE", "DOMAIN_EVENT"] },
+      "audit_only": { "allowed_event_types": ["AUDIT", "SECURITY_VIOLATION"] }
+    }
+  }
+}
