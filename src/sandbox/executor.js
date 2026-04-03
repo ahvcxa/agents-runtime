@@ -1,12 +1,27 @@
 "use strict";
 
+const path = require("path");
+const { execFile } = require("child_process");
+const { promisify } = require("util");
+
+const execFileAsync = promisify(execFile);
+
 function timeoutPromise(ms) {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`Sandbox timeout exceeded (${ms}ms)`)), ms);
   });
 }
 
-async function executeInSandbox({ strategy, timeoutMs, logger, run }) {
+async function executeInSandbox({
+  strategy,
+  timeoutMs,
+  logger,
+  run,
+  sandboxSettings,
+  projectRoot,
+  handlerPath,
+  context,
+}) {
   const mode = (strategy ?? "process").toLowerCase();
   const effectiveTimeout = timeoutMs ?? 120000;
 
@@ -15,11 +30,48 @@ async function executeInSandbox({ strategy, timeoutMs, logger, run }) {
   if (mode === "process") return executeLocal();
 
   if (mode === "docker") {
-    logger?.log({
-      event_type: "WARN",
-      message: "Sandbox strategy 'docker' requested but container launcher is not configured; falling back to in-process execution.",
-    });
-    return executeLocal();
+    const sandboxCfg = sandboxSettings ?? {};
+
+    const dockerEnabled = Boolean(sandboxCfg.docker_enabled);
+    if (!dockerEnabled) {
+      logger?.log({
+        event_type: "WARN",
+        message: "Sandbox strategy 'docker' requested but docker_enabled=false; falling back to in-process execution.",
+      });
+      return executeLocal();
+    }
+
+    const image = sandboxCfg.docker_image ?? "node:20-alpine";
+    const dockerCmd = [
+      "run", "--rm",
+      "--network", "none",
+      "--cpus", String(sandboxCfg.docker_cpus ?? "1"),
+      "--memory", String(sandboxCfg.docker_memory ?? "256m"),
+      "-v", `${projectRoot}:/workspace:ro`,
+      "-w", "/workspace",
+      image,
+      "node",
+      path.relative(projectRoot, handlerPath),
+    ];
+
+    try {
+      const { stdout } = await execFileAsync("docker", dockerCmd, {
+        timeout: effectiveTimeout,
+        encoding: "utf8",
+        maxBuffer: 1024 * 1024,
+        env: {
+          AGENT_CONTEXT_JSON: JSON.stringify(context ?? {}),
+        },
+      });
+      try {
+        return JSON.parse(stdout || "null");
+      } catch {
+        return { raw_output: stdout };
+      }
+    } catch (err) {
+      logger?.log({ event_type: "WARN", message: `Docker sandbox failed (${err.message}); falling back to in-process execution.` });
+      return executeLocal();
+    }
   }
 
   if (mode === "wasm") {

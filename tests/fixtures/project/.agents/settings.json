@@ -3,12 +3,23 @@
     "environment": "test",
     "agent_timeout_seconds": 30,
     "sandbox": {
-      "strategy": "process"
+      "strategy": "process",
+      "docker_enabled": false,
+      "docker_image": "node:20-alpine",
+      "docker_cpus": "1",
+      "docker_memory": "256m"
     }
   },
   "memory": {
     "enabled": true,
     "backend": "in-process",
+    "redis": {},
+    "postgres": {},
+    "vector": {},
+    "semantic_events": {
+      "enabled": true,
+      "top_k": 5
+    },
     "ttl_default_seconds": 3600,
     "access_control": {
       "rules": [

@@ -17,7 +17,10 @@ const DEFAULTS = {
     heartbeat_interval_seconds: 10,
     sandbox: {
       strategy: "process",
+      docker_enabled: false,
       docker_image: "node:20-alpine",
+      docker_cpus: "1",
+      docker_memory: "256m",
       wasm_module_path: "",
     },
   },
@@ -60,6 +63,10 @@ const DEFAULTS = {
     redis: {},
     postgres: {},
     vector: {},
+    semantic_events: {
+      enabled: false,
+      top_k: 5,
+    },
     max_size_mb: 256,
     ttl_default_seconds: 3600,
     eviction_policy: "lru",

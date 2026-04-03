@@ -10,7 +10,13 @@ describe("sandbox executor", () => {
 
   test("falls back for docker mode", async () => {
     const logger = { log() {} };
-    const result = await executeInSandbox({ strategy: "docker", timeoutMs: 1000, logger, run: () => "ok" });
+    const result = await executeInSandbox({
+      strategy: "docker",
+      timeoutMs: 1000,
+      logger,
+      sandboxSettings: { docker_enabled: false },
+      run: () => "ok",
+    });
     expect(result).toBe("ok");
   });
 

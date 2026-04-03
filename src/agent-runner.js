@@ -8,6 +8,7 @@
 
 const path       = require("path");
 const fs         = require("fs");
+const fsp        = require("fs/promises");
 const { execFile } = require("child_process");
 const os         = require("os");
 const { promisify } = require("util");
@@ -72,14 +73,16 @@ class AgentRunner {
       throw new Error(`[agent-runner] Authorization denied: skill '${skillId}' requires level ${requiredLevel}, agent has level ${authLevel}`);
     }
 
+    const runTraceId = this.runtime?.tracer?.traceId?.();
+
     // 3. Create memory client for this agent
     const { createMemoryStore } = require("./memory/memory-store");
     const memory = createMemoryStore(this.settings, authLevel, agentId, this.projectRoot);
     this._trackMemoryTimer(memory);
 
     // Bind logger and emitter for hooks
-    const log  = (entry) => this.logger.log(entry);
-    const emit = (event) => this.eventBus.dispatch(event);
+    const log  = (entry) => this.logger.log({ trace_id: runTraceId, ...entry });
+    const emit = (event) => this.eventBus.dispatch({ trace_id: runTraceId, ...event });
 
     // 4. Pre-skill hook
     let invocationKey;
@@ -99,10 +102,10 @@ class AgentRunner {
     let result, success;
 
     try {
-      result  = await this._executeSkill(skillManifest, agentId, authLevel, input, memory, log);
+      result  = await this._executeSkill(skillManifest, agentId, authLevel, input, memory, log, runTraceId);
       success = true;
     } catch (err) {
-      result  = { error: err.message };
+      result  = { error: err.message, trace_id: runTraceId };
       success = false;
       this.logger.log({ event_type: "ERROR", agent_id: agentId, skill_id: skillId, message: err.message });
     }
@@ -133,7 +136,7 @@ class AgentRunner {
 
     // Write agent config to a temp file
     const tmpFile = path.join(os.tmpdir(), `agent-config-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-    fs.writeFileSync(tmpFile, JSON.stringify(agentConfig), "utf8");
+    await fsp.writeFile(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {
       await execFileAsync("node", [checkerPath, "--agent-config", tmpFile], {
@@ -144,7 +147,7 @@ class AgentRunner {
       const output = err.stdout ?? err.stderr ?? err.message;
       throw new Error(`[compliance] Check failed:\n${output}`);
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
+      try { await fsp.unlink(tmpFile); } catch { /* ignore */ }
     }
   }
 
@@ -164,9 +167,9 @@ class AgentRunner {
    * Execute the actual skill. Looks for a JS handler first, then falls back
    * to a no-op echo (useful for analysis skills that are driven by LLM context).
    */
-  async _executeSkill(skillManifest, agentId, authLevel, input, memory, log) {
+  async _executeSkill(skillManifest, agentId, authLevel, input, memory, log, runTraceId) {
     const tracer = this.runtime?.tracer;
-    const traceId = tracer?.traceId?.();
+    const traceId = runTraceId ?? tracer?.traceId?.();
     const span = tracer?.startSpan("skill.execute", {
       "agent.id": agentId,
       "skill.id": skillManifest.id,
@@ -194,12 +197,21 @@ class AgentRunner {
         const fn = handler.execute ?? handler.run ?? handler.default ?? handler;
         if (typeof fn === "function") {
           try {
-            return await executeInSandbox({
+            const result = await executeInSandbox({
               strategy: this.settings?.runtime?.sandbox?.strategy ?? "process",
               timeoutMs: (this.settings?.runtime?.agent_timeout_seconds ?? 120) * 1000,
               logger: this.logger,
+              sandboxSettings: this.settings?.runtime?.sandbox ?? {},
+              projectRoot: this.projectRoot,
+              handlerPath: absHandler,
+              handlerExport: handler.execute ? "execute" : (handler.run ? "run" : (handler.default ? "default" : null)),
+              context: { agentId, authLevel, input, settings: this.settings, projectRoot: this.projectRoot },
               run: () => fn({ agentId, authLevel, input, memory, log }),
             });
+            if (result && typeof result === "object" && !Array.isArray(result)) {
+              return { ...result, trace_id: traceId };
+            }
+            return result;
           } catch (err) {
             span?.recordException?.(err);
             throw err;
