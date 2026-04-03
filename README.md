@@ -68,13 +68,13 @@ npm install
 ### 2. Install the agent config into your project
 
 ```bash
-bash setup-agents.sh /path/to/your/project
+# Install alongside a predefined template (observer, executor, fullstack, orchestrator, security-only)
+bash setup-agents.sh /path/to/your/project --agent fullstack
 ```
 
+### 3. Create or review agent config
 
-### 3. Create an agent config
-
-Create `agent.yaml` in your project root:
+If you skipped the `--agent` flag above, create `agent.yaml` in your project root manually (otherwise, you can just edit the generated one):
 
 ```yaml
 agent:

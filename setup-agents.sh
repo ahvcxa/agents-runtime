@@ -7,6 +7,7 @@
 #   bash setup-agents.sh                  → Install into current directory
 #   bash setup-agents.sh /path/to/project → Install into target project
 #   bash setup-agents.sh /path --force    → Overwrite existing files
+#   bash setup-agents.sh --agent fullstack → Install with 'fullstack' agent config
 #
 # Vendor-neutral: works with GPT, Gemini, Claude, LLaMA, or custom runtimes.
 # =============================================================================
@@ -22,15 +23,20 @@ NC='\033[0m'
 
 FORCE=false
 TARGET_DIR="."
+AGENT_TEMPLATE=""
 
-for arg in "$@"; do
-  case $arg in
-    --force|-f) FORCE=true ;;
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --force|-f)
+      FORCE=true
+      shift
+      ;;
     --help|-h)
-      echo "Usage: bash setup-agents.sh [target-dir] [--force]"
+      echo "Usage: bash setup-agents.sh [target-dir] [options]"
       echo ""
       echo "  target-dir    Project directory where .agents/ will be created (default: .)"
       echo "  --force, -f   Overwrite existing files"
+      echo "  --agent, -a   Copy a pre-built agent template to agent.yaml (observer, executor, fullstack, orchestrator, security-only)"
       echo ""
       echo "Installs:"
       echo "  .agents/manifest.json        ← Machine-readable entry point"
@@ -39,9 +45,17 @@ for arg in "$@"; do
       echo "  .agents/hooks/               ← Security & lifecycle hooks"
       echo "  .agents/helpers/             ← Compliance check & memory client"
       echo "  .agents/skills/              ← code-analysis, security-audit, refactor"
+      shift
       exit 0
       ;;
-    *) TARGET_DIR="$arg" ;;
+    --agent|-a)
+      AGENT_TEMPLATE="$2"
+      shift 2
+      ;;
+    *)
+      TARGET_DIR="$1"
+      shift
+      ;;
   esac
 done
 
@@ -67,6 +81,9 @@ DEST="$TARGET_DIR/.agents"
 echo -e "  ${BLUE}Template :${NC} $TEMPLATE_DIR"
 echo -e "  ${BLUE}Target   :${NC} $DEST"
 echo -e "  ${BLUE}Force    :${NC} $FORCE"
+if [ -n "$AGENT_TEMPLATE" ]; then
+  echo -e "  ${BLUE}Agent    :${NC} $AGENT_TEMPLATE"
+fi
 echo ""
 
 if [ ! -d "$TARGET_DIR" ]; then
@@ -121,6 +138,20 @@ if [ -f "$TARGET_DIR/.gitignore" ]; then
   fi
 fi
 
+if [ -n "$AGENT_TEMPLATE" ]; then
+  TEMPLATE_FILE="$SCRIPT_DIR/examples/${AGENT_TEMPLATE}-agent.yaml"
+  if [ -f "$TEMPLATE_FILE" ]; then
+    if [ -f "$TARGET_DIR/agent.yaml" ] && [ "$FORCE" = false ]; then
+      echo -e "  ${YELLOW}SKIPPED${NC}   agent.yaml (already exists, use --force to overwrite)"
+    else
+      cp "$TEMPLATE_FILE" "$TARGET_DIR/agent.yaml"
+      echo -e "  ${GREEN}CREATED${NC}   agent.yaml (from ${AGENT_TEMPLATE} template)"
+    fi
+  else
+    echo -e "  ${RED}ERROR${NC}   Agent template '${AGENT_TEMPLATE}' not found in examples/ directory."
+  fi
+fi
+
 echo ""
 echo -e "${BOLD}─────────────────────────────────────────────────────${NC}"
 echo -e "  ${GREEN}✓ Copied   :${NC} $FILES_COPIED file(s)"
@@ -132,7 +163,11 @@ echo -e "${BOLD}Installation complete!${NC}"
 echo ""
 echo -e "Next steps:"
 echo -e "  1. Edit ${BLUE}.agents/settings.json${NC} for your project"
-echo -e "  2. Create an agent config file (see ${BLUE}examples/observer-agent.yaml${NC})"
+if [ -z "$AGENT_TEMPLATE" ]; then
+  echo -e "  2. Create an agent config file (or re-run with --agent observer)"
+else
+  echo -e "  2. Review your new ${BLUE}agent.yaml${NC} configuration"
+fi
 echo -e "  3. Run compliance check:"
 echo -e "     ${BOLD}node bin/agents.js check --config agent.yaml --project .${NC}"
 echo ""

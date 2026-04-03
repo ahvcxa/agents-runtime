@@ -1,18 +1,20 @@
 # ─────────────────────────────────────────────────────────────
-# TEMPLATE: Observer Agent
-# Role      : Read-only analyst. Cannot modify any file.
-# Auth Level: 1 — can run code-analysis and security-audit
-# Use case  : CI pipelines, PR reviews, passive monitoring
+# TEMPLATE: Fullstack Executor Agent
+# Role      : Multi-domain developer (Read + Write)
+# Auth Level: 2 — all standard skills
+# Use case  : Fullstack tasks covering frontend, backend, and config
 # ─────────────────────────────────────────────────────────────
 agent:
-  id: "observer-01"
-  role: "Observer"
+  id: "fullstack-executor"
+  role: "Executor"
   skill_set:
     - "code-analysis"
+    - "refactor"
     - "security-audit"
-  authorization_level: 1
-  read_only: true
+  authorization_level: 2
+  read_only: false
   read_paths:
-    - "src/"
-    - "lib/"
-    - "index.js"
+    - "src/frontend/"
+    - "src/backend/"
+    - "config/"
+    - "package.json"

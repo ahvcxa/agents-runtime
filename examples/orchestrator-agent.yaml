@@ -1,18 +1,15 @@
 # ─────────────────────────────────────────────────────────────
-# TEMPLATE: Observer Agent
-# Role      : Read-only analyst. Cannot modify any file.
-# Auth Level: 1 — can run code-analysis and security-audit
-# Use case  : CI pipelines, PR reviews, passive monitoring
+# TEMPLATE: Orchestrator Agent
+# Role      : Full system control, orchestration level.
+# Auth Level: 3 — highest privilege.
+# Use case  : System-wide changes, coordinating other agents.
 # ─────────────────────────────────────────────────────────────
 agent:
-  id: "observer-01"
-  role: "Observer"
+  id: "orchestrator-01"
+  role: "Orchestrator"
   skill_set:
     - "code-analysis"
     - "security-audit"
-  authorization_level: 1
-  read_only: true
-  read_paths:
-    - "src/"
-    - "lib/"
-    - "index.js"
+    - "refactor"
+  authorization_level: 3
+  read_only: false

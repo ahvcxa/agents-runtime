@@ -1,18 +1,17 @@
 # ─────────────────────────────────────────────────────────────
-# TEMPLATE: Observer Agent
-# Role      : Read-only analyst. Cannot modify any file.
-# Auth Level: 1 — can run code-analysis and security-audit
-# Use case  : CI pipelines, PR reviews, passive monitoring
+# TEMPLATE: Security Only Agent
+# Role      : Specialized Security Auditor
+# Auth Level: 1 — strict read-only access
+# Use case  : Automated deep vulnerability scans before deploy
 # ─────────────────────────────────────────────────────────────
 agent:
-  id: "observer-01"
+  id: "security-auditor-01"
   role: "Observer"
   skill_set:
-    - "code-analysis"
     - "security-audit"
   authorization_level: 1
   read_only: true
   read_paths:
     - "src/"
-    - "lib/"
-    - "index.js"
+    - "package.json"
+    - "package-lock.json"

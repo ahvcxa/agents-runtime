@@ -1,8 +1,15 @@
+# ─────────────────────────────────────────────────────────────
+# TEMPLATE: Executor Agent
+# Role      : Read + Write. Can analyse AND refactor code.
+# Auth Level: 2 — all skills including refactor
+# Use case  : Local development, automated refactoring tasks
+# ─────────────────────────────────────────────────────────────
 agent:
   id: "executor-01"
   role: "Executor"
   skill_set:
-    - "refactor"
     - "code-analysis"
+    - "security-audit"
+    - "refactor"
   authorization_level: 2
   read_only: false
