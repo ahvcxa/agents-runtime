@@ -18,6 +18,7 @@ const fs          = require("fs");
 const yaml        = require("js-yaml");
 
 const { createRuntime } = require("../src/engine");
+const { exportReport } = require("../src/report/exporter");
 
 const program = new Command();
 
@@ -56,6 +57,8 @@ program
   .requiredOption("-s, --skill <id>",    "Skill ID to execute")
   .option("-i, --input <json>",   "JSON input payload", "{}")
   .option("-p, --project <dir>",  "Project root (default: cwd)")
+  .option("-e, --export <path>",  "Export result to file (.json/.html/.pdf)")
+  .option("-f, --format <type>",  "Export format override: json|html|pdf")
   .option("-v, --verbose",        "Verbose logging")
   .action(async (opts) => {
     const root        = projectRoot(opts);
@@ -75,6 +78,17 @@ program
       console.log("\n\x1b[1m─── Skill Result ───────────────────────────────────────\x1b[0m");
       console.log(JSON.stringify(result, null, 2));
       console.log(`\n\x1b[1mStatus:\x1b[0m ${success ? "\x1b[32mSUCCESS\x1b[0m" : "\x1b[31mFAILED\x1b[0m"} (${duration_ms}ms)`);
+
+      if (opts.export) {
+        const inferred = (opts.export.split(".").pop() || "json").toLowerCase();
+        const format = opts.format ?? inferred;
+        const exportedPath = exportReport({
+          result: { success, result, duration_ms, skill: opts.skill, project: root },
+          outputPath: opts.export,
+          format,
+        });
+        console.log(`\x1b[36m[EXPORT]\x1b[0m Report written: ${exportedPath}`);
+      }
 
       await runtime.shutdown();
       process.exit(success ? 0 : 1);
