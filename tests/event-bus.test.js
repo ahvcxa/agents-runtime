@@ -9,6 +9,8 @@ describe("event bus delegation and messaging", () => {
     expect(evt.event_type).toBe("AgentMessage");
     expect(evt.from).toBe("a");
     expect(evt.to).toBe("b");
+    expect(typeof evt.trace_id).toBe("string");
+    expect(evt.parent_message_id).toBeNull();
   });
 
   test("delegateTask emits TaskDelegated event", () => {

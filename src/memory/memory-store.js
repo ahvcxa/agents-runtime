@@ -5,6 +5,7 @@
  */
 
 const fs = require("fs");
+const fsp = require("fs/promises");
 const path = require("path");
 
 class InProcessMemoryDriver {
@@ -39,18 +40,19 @@ class FileMemoryDriver {
     this.storagePath = path.resolve(projectRoot, storagePath ?? ".agents/.memory-store");
     this.agentId = agentId;
     this.store = new Map();
-    this._load();
+    this._initPromise = this._load();
+    this._pendingFlush = null;
   }
 
   _filePath() {
     return path.join(this.storagePath, `${this.agentId}.json`);
   }
 
-  _load() {
+  async _load() {
     const file = this._filePath();
     if (!fs.existsSync(file)) return;
     try {
-      const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+      const parsed = JSON.parse(await fsp.readFile(file, "utf8"));
       for (const [key, entry] of Object.entries(parsed)) {
         this.store.set(key, entry);
       }
@@ -59,27 +61,50 @@ class FileMemoryDriver {
     }
   }
 
-  _flush() {
+  _scheduleFlush() {
+    if (this._pendingFlush) return this._pendingFlush;
+    this._pendingFlush = new Promise((resolve) => {
+      setImmediate(async () => {
+        await this._flushInternal();
+        this._pendingFlush = null;
+        resolve();
+      });
+    });
+    return this._pendingFlush;
+  }
+
+  async _flushInternal() {
     try {
-      fs.mkdirSync(this.storagePath, { recursive: true });
+      await fsp.mkdir(this.storagePath, { recursive: true });
       const out = {};
       for (const [key, val] of this.store.entries()) out[key] = val;
-      fs.writeFileSync(this._filePath(), JSON.stringify(out, null, 2), "utf8");
+      await fsp.writeFile(this._filePath(), JSON.stringify(out, null, 2), "utf8");
     } catch {
       // ignore flush failures to avoid breaking runtime
     }
   }
 
+  _flush() {
+    this._scheduleFlush().catch(() => undefined);
+  }
+
+  async _ensureReady() {
+    await this._initPromise;
+  }
+
   upsert(key, entry) {
+    this._ensureReady().catch(() => undefined);
     this.store.set(key, entry);
     this._flush();
   }
 
   get(key) {
+    this._ensureReady().catch(() => undefined);
     return this.store.get(key);
   }
 
   delete(key) {
+    this._ensureReady().catch(() => undefined);
     this.store.delete(key);
     this._flush();
   }

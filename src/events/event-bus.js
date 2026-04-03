@@ -36,6 +36,8 @@ class EventBus extends EventEmitter {
   dispatch(domainEvent) {
     const envelope = {
       message_id:       generateId(),
+      parent_message_id: domainEvent?.parent_message_id ?? null,
+      trace_id:         domainEvent?.trace_id ?? generateId(),
       schema_version:   "1.0",
       timestamp:        new Date().toISOString(),
       ttl_seconds:      300,

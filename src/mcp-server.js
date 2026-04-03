@@ -72,6 +72,17 @@ function sevIcon(sev) {
   return { CRITICAL: "🔴", HIGH: "🟠", MEDIUM: "🟡", LOW: "🟢", INFO: "ℹ️" }[sev] ?? "⚪";
 }
 
+function toToolResponse(text, stream = false) {
+  if (!stream) return { content: [{ type: "text", text }] };
+  const lines = String(text).split("\n");
+  return {
+    content: lines.map((line, idx) => ({
+      type: "text",
+      text: `[chunk ${idx + 1}/${lines.length}] ${line}`,
+    })),
+  };
+}
+
 // ─── MCP Server factory ───────────────────────────────────────────────────────
 async function createMcpServer(projectRoot) {
   const server = new McpServer({
@@ -108,8 +119,9 @@ async function createMcpServer(projectRoot) {
         .string()
         .optional()
         .describe("Absolute path to the project root. Defaults to the server project root."),
+      stream: z.boolean().optional().default(false),
     },
-    async ({ files, project_root }) => {
+    async ({ files, project_root, stream }) => {
       try {
         const rt = await getRuntime();
         const result = await rt.runAgent(DEFAULT_AGENT, "code-analysis", {
@@ -119,9 +131,9 @@ async function createMcpServer(projectRoot) {
         const text = result.success
           ? formatFindings(result.result.findings, result.result.summary)
           : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
-        return { content: [{ type: "text", text }] };
+        return toToolResponse(text, stream);
       } catch (err) {
-        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }
     }
   );
@@ -146,8 +158,9 @@ async function createMcpServer(projectRoot) {
         .string()
         .optional()
         .describe("Absolute path to the project root."),
+      stream: z.boolean().optional().default(false),
     },
-    async ({ files, project_root }) => {
+    async ({ files, project_root, stream }) => {
       try {
         const rt = await getRuntime();
         const result = await rt.runAgent(DEFAULT_AGENT, "security-audit", {
@@ -157,9 +170,9 @@ async function createMcpServer(projectRoot) {
         const text = result.success
           ? formatFindings(result.result.findings, result.result.summary)
           : `❌ Error: ${result.error ?? result.result?.error ?? "Unknown error"}`;
-        return { content: [{ type: "text", text }] };
+        return toToolResponse(text, stream);
       } catch (err) {
-        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }
     }
   );
@@ -192,8 +205,9 @@ async function createMcpServer(projectRoot) {
         .optional()
         .default(true)
         .describe("If true (default), patches are proposed but not applied to disk."),
+      stream: z.boolean().optional().default(false),
     },
-    async ({ findings, project_root, dry_run }) => {
+    async ({ findings, project_root, dry_run, stream }) => {
       try {
         const rt = await getRuntime();
         const execAgent = {
@@ -211,16 +225,14 @@ async function createMcpServer(projectRoot) {
           dry_run: dry_run ?? true,
         });
         if (!result.success) {
-          return { content: [{ type: "text", text: `❌ Error: ${result.error}` }] };
+          return toToolResponse(`❌ Error: ${result.error}`, stream);
         }
         const { patches, summary } = result.result;
         if (!patches || patches.length === 0) {
-          return {
-            content: [{
-              type: "text",
-              text: `ℹ️ No auto-fixable patches generated.\n${summary.auto_fixable} finding(s) were auto-fixable but no patch template matched.\nReview findings manually.`,
-            }],
-          };
+          return toToolResponse(
+            `ℹ️ No auto-fixable patches generated.\n${summary.auto_fixable} finding(s) were auto-fixable but no patch template matched.\nReview findings manually.`,
+            stream
+          );
         }
         const text = [
           `🔧 **${patches.length} patch(es) generated** (dry_run=${dry_run ?? true})`,
@@ -234,9 +246,9 @@ async function createMcpServer(projectRoot) {
             ].join("\n")
           ),
         ].join("\n");
-        return { content: [{ type: "text", text }] };
+        return toToolResponse(text, stream);
       } catch (err) {
-        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }
     }
   );
@@ -342,6 +354,53 @@ async function createMcpServer(projectRoot) {
         );
 
         return { content: [{ type: "text", text: lines.join("\n") }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    "delegate_task",
+    "Delegates a task from one agent to another via domain events.",
+    {
+      from_agent: z.string(),
+      to_agent: z.string(),
+      action: z.string(),
+      payload: z.record(z.any()).optional().default({}),
+    },
+    async ({ from_agent, to_agent, action, payload }) => {
+      try {
+        const rt = await getRuntime();
+        const evt = rt.delegateTask(from_agent, to_agent, { action, payload });
+        return { content: [{ type: "text", text: `✅ Delegated task ${evt.payload.task_id} from '${from_agent}' to '${to_agent}'` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    "send_agent_message",
+    "Sends an async message between agents through the EventBus.",
+    {
+      from_agent: z.string(),
+      to_agent: z.string(),
+      payload: z.record(z.any()).optional().default({}),
+      parent_message_id: z.string().optional(),
+      trace_id: z.string().optional(),
+    },
+    async ({ from_agent, to_agent, payload, parent_message_id, trace_id }) => {
+      try {
+        const rt = await getRuntime();
+        const evt = rt.eventBus.sendMessage({
+          from: from_agent,
+          to: to_agent,
+          payload,
+          parent_message_id,
+          trace_id,
+        });
+        return { content: [{ type: "text", text: `✅ Message sent id=${evt.message_id} trace_id=${evt.trace_id}` }] };
       } catch (err) {
         return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
       }

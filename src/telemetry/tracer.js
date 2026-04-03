@@ -5,6 +5,9 @@ function createTracer(serviceName = "agents-runtime") {
     const api = require("@opentelemetry/api");
     const tracer = api.trace.getTracer(serviceName);
     return {
+      traceId() {
+        return `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      },
       startSpan(name, attrs = {}) {
         const span = tracer.startSpan(name);
         Object.entries(attrs).forEach(([k, v]) => span.setAttribute(k, v));
@@ -16,6 +19,9 @@ function createTracer(serviceName = "agents-runtime") {
     };
   } catch {
     return {
+      traceId() {
+        return `trace-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      },
       startSpan(_name, _attrs = {}) {
         return {
           setAttribute() {},

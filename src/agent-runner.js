@@ -8,9 +8,12 @@
 
 const path       = require("path");
 const fs         = require("fs");
-const { execFileSync } = require("child_process");
+const { execFile } = require("child_process");
 const os         = require("os");
+const { promisify } = require("util");
 const { executeInSandbox } = require("./sandbox/executor");
+
+const execFileAsync = promisify(execFile);
 
 class AgentRunner {
   /**
@@ -133,9 +136,8 @@ class AgentRunner {
     fs.writeFileSync(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {
-      execFileSync("node", [checkerPath, "--agent-config", tmpFile], {
+      await execFileAsync("node", [checkerPath, "--agent-config", tmpFile], {
         cwd:    this.projectRoot,
-        stdio:  "pipe",
         encoding: "utf8",
       });
     } catch (err) {
@@ -164,9 +166,11 @@ class AgentRunner {
    */
   async _executeSkill(skillManifest, agentId, authLevel, input, memory, log) {
     const tracer = this.runtime?.tracer;
+    const traceId = tracer?.traceId?.();
     const span = tracer?.startSpan("skill.execute", {
       "agent.id": agentId,
       "skill.id": skillManifest.id,
+      "trace.id": traceId,
     });
 
     if (Array.isArray(input?.network_requests)) {
@@ -215,6 +219,7 @@ class AgentRunner {
       input_echo: input,
       note:       "No JS handler declared in SKILL.md frontmatter. LLM-driven skill context loaded.",
       skill_description: skillManifest.description ?? skillManifest.content?.slice(0, 300),
+      trace_id: traceId,
     };
     span?.end?.();
     return fallback;
