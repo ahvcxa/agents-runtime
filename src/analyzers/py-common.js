@@ -38,4 +38,23 @@ function indentLevel(line) {
   return m ? m[1].length : 0;
 }
 
-module.exports = { uuid, finding, stripPython, indentLevel };
+/**
+ * Detect duplicate values in an array.
+ * Used to identify magic numbers/strings that appear multiple times.
+ * @param {string[]} items - Items to check for duplicates
+ * @param {number} threshold - Minimum count to consider a duplicate (default: 2)
+ * @returns {Array<[value, lineNumbers]>} Entries where count >= threshold
+ */
+function detectDuplicateValues(items, threshold = 2) {
+  const seen = new Map();
+  
+  items.forEach((item) => {
+    seen.set(item, (seen.get(item) || 0) + 1);
+  });
+  
+  return Array.from(seen.entries())
+    .filter(([_, count]) => count >= threshold)
+    .map(([item, count]) => [item, count]);
+}
+
+module.exports = { uuid, finding, stripPython, indentLevel, detectDuplicateValues };
