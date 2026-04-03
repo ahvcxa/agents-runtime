@@ -42,6 +42,7 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 | 🔌 **Vendor-Neutral** | No LLM API keys required. Runs fully offline. |
 | 🐍 **Multi-Language** | Analyzes JavaScript/TypeScript **and** Python source code |
 | 🛡️ **OWASP Top 10** | Built-in security audit covering all 10 categories (2021) |
+| 🤖 **MCP Support** | Native Model Context Protocol server — use as a Claude/GPT tool |
 | 🔒 **Security Hooks** | `pre-read` hook enforces path traversal protection at framework level |
 | 📋 **ACL Memory** | Authorization-level-based memory namespaces (Observer / Executor / Orchestrator) |
 | 📦 **Zero Config** | One script installs the full `.agents/` config into any existing project |
@@ -352,6 +353,57 @@ Time:        ~0.2s
 
 ---
 
+## 🤖 MCP (Model Context Protocol) Integration
+
+Use agents-runtime as a **native tool** in Claude Desktop, Cursor, Windsurf, or any MCP-compatible AI client.
+
+### Quick Setup
+
+```bash
+# Start the MCP server
+node bin/mcp.js --project /path/to/your/project
+```
+
+### Claude Desktop Configuration
+
+Add to `~/.config/claude/claude_desktop_config.json` (Linux) or
+`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+
+```json
+{
+  "mcpServers": {
+    "agents-runtime": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/agents-runtime/bin/mcp.js",
+        "--project",
+        "/absolute/path/to/your/project"
+      ]
+    }
+  }
+}
+```
+
+Restart Claude Desktop — you'll see 4 new tools:
+
+| MCP Tool | Description |
+|----------|-------------|
+| `code_analysis` | 5-principle static analysis (JS + Python) |
+| `security_audit` | OWASP Top 10 deep security audit |
+| `refactor` | Unified diff patch generator (dry-run safe) |
+| `compliance_check` | Agent authorization & contract validation |
+
+### Example Claude conversation
+
+> **You:** Scan the src/ folder for security issues
+>
+> **Claude:** *(calls `security_audit` with files=["src/"])*
+>
+> 🔴 **CRITICAL** — `src/ui/cli.py:45` — `os.system()` OS command injection (CWE-78 · A03:2021)
+> 💡 Use `subprocess.run(['cmd', 'arg'])` instead
+
+---
+
 ## 🔗 Use in CI/CD
 
 ### GitHub Actions
@@ -374,7 +426,7 @@ jobs:
 
       - name: Install agents-runtime
         run: |
-          git clone https://github.com/yourusername/agents-runtime.git ../agents-runtime
+          git clone https://github.com/ahvcxa/agents-runtime.git ../agents-runtime
           cd ../agents-runtime && npm install
 
       - name: Run security audit

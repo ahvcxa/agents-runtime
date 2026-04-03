@@ -4,10 +4,12 @@
   "description": "Vendor-neutral AI agent runtime engine — static analysis, OWASP security audit, and skill execution for any project",
   "main": "src/engine.js",
   "bin": {
-    "agents": "./bin/agents.js"
+    "agents": "./bin/agents.js",
+    "agents-mcp": "./bin/mcp.js"
   },
   "scripts": {
     "start": "node bin/agents.js",
+    "mcp": "node bin/mcp.js",
     "test": "jest --testPathPattern=tests/ --forceExit",
     "test:watch": "jest --watch --testPathPattern=tests/",
     "test:coverage": "jest --testPathPattern=tests/ --forceExit --coverage",
@@ -23,9 +25,11 @@
   },
   "author": "Batuhan <ahvcxa>",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "commander": "^12.1.0",
     "gray-matter": "^4.0.3",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "jest": "^29.7.0"
@@ -47,4 +51,3 @@
   ],
   "license": "MIT"
 }
-

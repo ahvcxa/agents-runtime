@@ -10,7 +10,7 @@ const { HookRegistry } = require("../src/registry/hook-registry");
 const { StructuredLogger } = require("../src/logger/structured-logger");
 const { loadSettings } = require("../src/loader/settings-loader");
 
-const PROJECT_ROOT = path.resolve(__dirname, "../../agents-template");
+const PROJECT_ROOT = path.resolve(__dirname, "./fixtures");
 
 // Minimal logger that doesn't write to disk
 const nullLogger = { log: () => {}, warn: () => {}, error: () => {}, info: () => {}, audit: () => {} };
