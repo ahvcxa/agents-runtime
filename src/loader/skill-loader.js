@@ -33,8 +33,9 @@ function loadSkillMd(skillMdPath) {
  * @param {string} skillId
  */
 function validateSkillFrontmatter(frontmatter, skillId) {
-  const required = ["name", "version"];
-  const missing = required.filter((k) => !frontmatter[k]);
+  const missing = [];
+  if (!frontmatter.version) missing.push("version");
+  if (!frontmatter.id && !skillId) missing.push("id");
   if (missing.length > 0) {
     throw new Error(
       `[skill-loader] SKILL.md for '${skillId}' is missing frontmatter fields: ${missing.join(", ")}`

@@ -21,6 +21,23 @@ const DEFAULTS = {
     rotation: "daily",
     max_retained_days: 30,
     verbosity_mode: "standard",
+    modes: {
+      silent: { allowed_event_types: ["FATAL", "SECURITY_VIOLATION"] },
+      standard: {
+        allowed_event_types: [
+          "FATAL", "SECURITY_VIOLATION", "ERROR", "WARN",
+          "SKILL_START", "SKILL_END", "HOOK_FIRE", "AUDIT", "INFO",
+        ],
+      },
+      verbose: {
+        allowed_event_types: [
+          "FATAL", "SECURITY_VIOLATION", "ERROR", "WARN",
+          "SKILL_START", "SKILL_END", "HOOK_FIRE", "AUDIT",
+          "INFO", "DEBUG", "MEMORY_READ", "MEMORY_WRITE", "DOMAIN_EVENT",
+        ],
+      },
+      audit_only: { allowed_event_types: ["AUDIT", "SECURITY_VIOLATION"] },
+    },
   },
   security: {
     forbidden_file_patterns: [".env", ".env.*", "*.env", "*.pem", "*.key"],
