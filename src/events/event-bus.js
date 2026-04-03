@@ -18,10 +18,11 @@ function generateId() {
 }
 
 class EventBus extends EventEmitter {
-  constructor(logger) {
+  constructor(logger, options = {}) {
     super();
     this.logger   = logger;
     this._history = []; // Keep last 1000 events
+    this._semanticMemory = options.semanticMemory ?? null;
   }
 
   /**
@@ -49,6 +50,7 @@ class EventBus extends EventEmitter {
     if (this._history.length > 1000) this._history.shift();
 
     this.logger?.log({ event_type: "DOMAIN_EVENT", ...envelope });
+    this._semanticMemory?.appendSemanticEvent?.(envelope);
 
     // Emit to typed listeners and wildcard listeners
     this.emit(envelope.event_type, envelope);
@@ -90,6 +92,10 @@ class EventBus extends EventEmitter {
   /** Get recent event history */
   history(limit = 50) {
     return this._history.slice(-limit);
+  }
+
+  semanticHistory(query, topK = 5) {
+    return this._semanticMemory?.semanticSearch?.(query, { top_k: topK }) ?? [];
   }
 }
 

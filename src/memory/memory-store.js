@@ -139,7 +139,15 @@ class VectorMemoryDriver extends InProcessMemoryDriver {
   }
 
   similarityQuery(_vector, _topK = 5) {
-    return [];
+    if (!(this.store instanceof Map)) return [];
+    const q = String(_vector ?? "").toLowerCase();
+    const out = [];
+    for (const [, entry] of this.store.entries()) {
+      const content = JSON.stringify(entry?.value ?? {}).toLowerCase();
+      if (content.includes(q)) out.push(entry.value);
+      if (out.length >= _topK) break;
+    }
+    return out;
   }
 }
 
@@ -284,6 +292,53 @@ class MemoryStoreClient {
 
   shutdown() {
     this.adapter.close();
+  }
+
+  appendSemanticEvent(event) {
+    const semanticCfg = this.settings?.semantic_events ?? {};
+    if (!semanticCfg.enabled) return;
+
+    const traceId = event?.trace_id ?? "no-trace";
+    const messageId = event?.message_id ?? `event-${Date.now()}`;
+    const key = `event:${traceId}:${messageId}`;
+    this.adapter.upsert(key, {
+      value: {
+        event_type: event?.event_type,
+        trace_id: traceId,
+        parent_message_id: event?.parent_message_id ?? null,
+        payload: event?.payload ?? {},
+        timestamp: event?.timestamp ?? new Date().toISOString(),
+      },
+      _tags: [
+        `event_type:${event?.event_type ?? "unknown"}`,
+        `trace_id:${traceId}`,
+      ],
+      _written_at: new Date().toISOString(),
+      _agent: this.agentId,
+    });
+  }
+
+  semanticSearch(query, options = {}) {
+    const semanticCfg = this.settings?.semantic_events ?? {};
+    const topK = options.top_k ?? semanticCfg.top_k ?? 5;
+    const queryText = String(query ?? "").toLowerCase();
+    if (!queryText) return [];
+
+    if (typeof this.adapter.similarityQuery === "function") {
+      return this.adapter.similarityQuery(queryText, topK);
+    }
+
+    if (!(this.adapter.store instanceof Map)) return [];
+    const rows = [];
+    for (const [key, entry] of this.adapter.store.entries()) {
+      if (!key.startsWith("event:")) continue;
+      const serialized = JSON.stringify(entry?.value ?? {}).toLowerCase();
+      if (serialized.includes(queryText)) {
+        rows.push(entry.value);
+      }
+      if (rows.length >= topK) break;
+    }
+    return rows;
   }
 }
 

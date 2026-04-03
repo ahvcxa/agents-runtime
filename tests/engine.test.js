@@ -74,4 +74,9 @@ describe("AgentRuntime", () => {
       url: "https://api.example.com/v1",
     })).rejects.toThrow("SECURITY_VIOLATION");
   });
+
+  test("semanticEventHistory returns array", () => {
+    const rows = runtime.semanticEventHistory("TaskDelegated", 3);
+    expect(Array.isArray(rows)).toBe(true);
+  });
 });

@@ -17,6 +17,7 @@ const { HookRegistry }   = require("./registry/hook-registry");
 const { SkillRegistry }  = require("./registry/skill-registry");
 const { AgentRunner }    = require("./agent-runner");
 const { createTracer }   = require("./telemetry/tracer");
+const { createMemoryStore } = require("./memory/memory-store");
 
 class AgentRuntime {
   /**
@@ -45,7 +46,8 @@ class AgentRuntime {
 
     // 2. Boot infrastructure
     this.logger   = new StructuredLogger(this.settings, this.projectRoot);
-    this.eventBus = new EventBus(this.logger);
+    this.semanticMemory = createMemoryStore(this.settings, 3, "runtime-system", this.projectRoot);
+    this.eventBus = new EventBus(this.logger, { semanticMemory: this.semanticMemory });
     this.tracer = createTracer("agents-runtime");
 
     this.logger.log({
@@ -127,10 +129,16 @@ class AgentRuntime {
     return this.eventBus.history(limit);
   }
 
+  semanticEventHistory(query, topK = 5) {
+    this._assertReady();
+    return this.eventBus.semanticHistory(query, topK);
+  }
+
   /** Graceful shutdown */
   async shutdown() {
     this.logger?.log({ event_type: "INFO", message: "AgentRuntime shutting down..." });
     await this.hookRegistry.dispatch("on_shutdown", { settings: this.settings });
+    this.semanticMemory?.shutdown?.();
     this.runner?.clearActiveTimers?.();
     this._ready = false;
   }

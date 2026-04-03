@@ -105,4 +105,21 @@ describe("MemoryStore", () => {
     expect(mem.get("skill:analysis:cache:p1")).toEqual({ ok: true });
     expect(mem.stats().backend).toBe("postgres");
   });
+
+  test("appends and searches semantic events", () => {
+    const cfg = JSON.parse(JSON.stringify(BASE_SETTINGS));
+    cfg.memory.semantic_events = { enabled: true, top_k: 5 };
+    const mem = createMemoryStore(cfg, 3, "runtime-system", PROJECT_ROOT);
+    mem.appendSemanticEvent({
+      event_type: "TaskDelegated",
+      trace_id: "trace-1",
+      message_id: "msg-1",
+      payload: { action: "run-skill", skill: "code-analysis" },
+    });
+
+    const hits = mem.semanticSearch("run-skill", { top_k: 3 });
+    expect(Array.isArray(hits)).toBe(true);
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+    expect(hits[0].event_type).toBe("TaskDelegated");
+  });
 });
