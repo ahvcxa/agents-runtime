@@ -407,6 +407,119 @@ async function createMcpServer(projectRoot) {
     }
   );
 
+  server.tool(
+    "task_status",
+    "Reads delegation status by task id from event history.",
+    {
+      task_id: z.string(),
+    },
+    async ({ task_id }) => {
+      try {
+        const rt = await getRuntime();
+        const events = rt.eventHistory(500).filter((e) => e.event_type === "TaskDelegated");
+        const found = events.find((e) => e.payload?.task_id === task_id);
+        if (!found) {
+          return { content: [{ type: "text", text: `ℹ️ Task '${task_id}' not found.` }] };
+        }
+        return {
+          content: [{
+            type: "text",
+            text: `✅ Task '${task_id}' status=${found.payload?.status ?? "unknown"} from=${found.from} to=${found.to}`,
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    "ack_task",
+    "Acknowledges a delegated task and emits tracking event.",
+    {
+      task_id: z.string(),
+      from_agent: z.string(),
+      to_agent: z.string(),
+      parent_message_id: z.string().optional(),
+      trace_id: z.string().optional(),
+    },
+    async ({ task_id, from_agent, to_agent, parent_message_id, trace_id }) => {
+      try {
+        const rt = await getRuntime();
+        const evt = rt.eventBus.sendMessage({
+          from: from_agent,
+          to: to_agent,
+          event_type: "TaskAcknowledged",
+          payload: { task_id, status: "acknowledged" },
+          parent_message_id,
+          trace_id,
+        });
+        return { content: [{ type: "text", text: `✅ Task '${task_id}' acknowledged (message=${evt.message_id})` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    "retry_task",
+    "Retries a delegated task by re-emitting TaskDelegated with parent linkage.",
+    {
+      task_id: z.string(),
+      from_agent: z.string(),
+      to_agent: z.string(),
+      action: z.string(),
+      payload: z.record(z.any()).optional().default({}),
+      trace_id: z.string().optional(),
+    },
+    async ({ task_id, from_agent, to_agent, action, payload, trace_id }) => {
+      try {
+        const rt = await getRuntime();
+        const evt = rt.eventBus.dispatch({
+          event_type: "TaskDelegated",
+          from: from_agent,
+          to: to_agent,
+          payload: {
+            task_id,
+            task: { action, payload },
+            status: "retried",
+          },
+          parent_message_id: task_id,
+          trace_id,
+        });
+        return { content: [{ type: "text", text: `✅ Task '${task_id}' retried (message=${evt.message_id})` }] };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    "semantic_events",
+    "Queries semantic event memory using text matching/vector fallback.",
+    {
+      query: z.string(),
+      top_k: z.number().int().min(1).max(50).optional().default(5),
+    },
+    async ({ query, top_k }) => {
+      try {
+        const rt = await getRuntime();
+        const hits = rt.semanticEventHistory(query, top_k);
+        if (!hits.length) {
+          return { content: [{ type: "text", text: `ℹ️ No semantic events matched query '${query}'.` }] };
+        }
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({ query, top_k, hits }, null, 2),
+          }],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `❌ Internal error: ${err.message}` }] };
+      }
+    }
+  );
+
   return server;
 }
 

@@ -16,4 +16,9 @@ describe("mcp-server compliance and patch formatting", () => {
     const server = await createMcpServer(projectRoot);
     expect(server).toBeTruthy();
   });
+
+  test("server factory supports additional tool registration without crash", async () => {
+    const { createMcpServer } = require("../src/mcp-server");
+    await expect(createMcpServer(projectRoot)).resolves.toBeDefined();
+  });
 });
