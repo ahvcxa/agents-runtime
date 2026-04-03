@@ -1,173 +1,12 @@
 "use strict";
 /**
  * src/memory/memory-store.js
- * Adapter-based memory layer with pluggable persistence drivers.
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Memory store client with adapter-based persistence
+ * Delegates to pluggable drivers (in-process, file, redis, postgres, vector)
  */
 
-const fs = require("fs");
-const fsp = require("fs/promises");
-const path = require("path");
-
-class InProcessMemoryDriver {
-  constructor() {
-    this.store = new Map();
-  }
-
-  upsert(key, entry) {
-    this.store.set(key, entry);
-  }
-
-  get(key) {
-    return this.store.get(key);
-  }
-
-  delete(key) {
-    this.store.delete(key);
-  }
-
-  entries() {
-    return [...this.store.entries()];
-  }
-
-  close() {
-    return undefined;
-  }
-}
-
-class FileMemoryDriver {
-  constructor({ projectRoot, storagePath, agentId }) {
-    this.projectRoot = projectRoot;
-    this.storagePath = path.resolve(projectRoot, storagePath ?? ".agents/.memory-store");
-    this.agentId = agentId;
-    this.store = new Map();
-    this._initPromise = this._load();
-    this._pendingFlush = null;
-  }
-
-  _filePath() {
-    return path.join(this.storagePath, `${this.agentId}.json`);
-  }
-
-  async _load() {
-    const file = this._filePath();
-    if (!fs.existsSync(file)) return;
-    try {
-      const parsed = JSON.parse(await fsp.readFile(file, "utf8"));
-      for (const [key, entry] of Object.entries(parsed)) {
-        this.store.set(key, entry);
-      }
-    } catch {
-      // ignore corrupt cache
-    }
-  }
-
-  _scheduleFlush() {
-    if (this._pendingFlush) return this._pendingFlush;
-    this._pendingFlush = new Promise((resolve) => {
-      setImmediate(async () => {
-        await this._flushInternal();
-        this._pendingFlush = null;
-        resolve();
-      });
-    });
-    return this._pendingFlush;
-  }
-
-  async _flushInternal() {
-    try {
-      await fsp.mkdir(this.storagePath, { recursive: true });
-      const out = {};
-      for (const [key, val] of this.store.entries()) out[key] = val;
-      await fsp.writeFile(this._filePath(), JSON.stringify(out, null, 2), "utf8");
-    } catch {
-      // ignore flush failures to avoid breaking runtime
-    }
-  }
-
-  _flush() {
-    this._scheduleFlush().catch(() => undefined);
-  }
-
-  async _ensureReady() {
-    await this._initPromise;
-  }
-
-  upsert(key, entry) {
-    this._ensureReady().catch(() => undefined);
-    this.store.set(key, entry);
-    this._flush();
-  }
-
-  get(key) {
-    this._ensureReady().catch(() => undefined);
-    return this.store.get(key);
-  }
-
-  delete(key) {
-    this._ensureReady().catch(() => undefined);
-    this.store.delete(key);
-    this._flush();
-  }
-
-  entries() {
-    return [...this.store.entries()];
-  }
-
-  close() {
-    this._flush();
-  }
-}
-
-class RedisMemoryDriver extends InProcessMemoryDriver {
-  constructor(opts = {}) {
-    super();
-    this.options = opts;
-  }
-}
-
-class PostgresMemoryDriver extends InProcessMemoryDriver {
-  constructor(opts = {}) {
-    super();
-    this.options = opts;
-  }
-}
-
-class VectorMemoryDriver extends InProcessMemoryDriver {
-  constructor(opts = {}) {
-    super();
-    this.options = opts;
-  }
-
-  similarityQuery(_vector, _topK = 5) {
-    if (!(this.store instanceof Map)) return [];
-    const q = String(_vector ?? "").toLowerCase();
-    const out = [];
-    for (const [, entry] of this.store.entries()) {
-      const content = JSON.stringify(entry?.value ?? {}).toLowerCase();
-      if (content.includes(q)) out.push(entry.value);
-      if (out.length >= _topK) break;
-    }
-    return out;
-  }
-}
-
-function createPersistenceAdapter(settings, agentId, projectRoot) {
-  const memory = settings?.memory ?? {};
-  const backend = (memory.backend ?? "in-process").toLowerCase();
-  const persistence = memory.persistence ?? {};
-
-  if (backend === "redis") return new RedisMemoryDriver(memory.redis ?? {});
-  if (backend === "postgres" || backend === "postgresql") return new PostgresMemoryDriver(memory.postgres ?? {});
-  if (backend === "vector") return new VectorMemoryDriver(memory.vector ?? {});
-  if (persistence.enabled) {
-    return new FileMemoryDriver({
-      projectRoot,
-      storagePath: persistence.storage_path,
-      agentId,
-    });
-  }
-  return new InProcessMemoryDriver();
-}
+const { createPersistenceAdapter } = require("./drivers");
 
 class MemoryStoreClient {
   // Constants
@@ -357,10 +196,5 @@ function createMemoryStore(settings, authLevel, agentId, projectRoot) {
 module.exports = {
   createMemoryStore,
   createPersistenceAdapter,
-  InProcessMemoryDriver,
-  FileMemoryDriver,
-  RedisMemoryDriver,
-  PostgresMemoryDriver,
-  VectorMemoryDriver,
   MemoryStoreClient,
 };
