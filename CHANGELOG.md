@@ -11,17 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added MCP multi-agent lifecycle tools:
-  - `delegate_task`
-  - `send_agent_message`
-  - `task_status`
-  - `ack_task`
-  - `retry_task`
-  - `semantic_events`
-- Added semantic event memory APIs in runtime and event bus:
-  - `AgentRuntime.semanticEventHistory(query, topK)`
-  - `EventBus.semanticHistory(query, topK)`
-- Added trace-linked result metadata propagation in skill execution outputs.
+- _No user-facing changes yet._
+
+---
+
+## [1.2.1] — 2026-04-03
+
+### Fixed
+
+- Eliminated lingering timeout handles in sandbox execution by replacing raw timeout race logic with a managed `withTimeout(...)` helper that always clears timers.
+- Removed Jest `--forceExit` from `test` and `test:coverage` scripts now that open-handle leaks are resolved.
+
+### Quality
+
+- Verified clean shutdown with `--detectOpenHandles`.
+- Confirmed all checks pass without force-exit fallback (`8/8` suites, `39/39` tests).
 
 ### Changed
 
@@ -129,4 +133,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [1.1.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.1.0
+[1.2.1]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.2.1
 [1.0.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.0.0
