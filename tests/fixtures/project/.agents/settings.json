@@ -1,7 +1,10 @@
 {
   "runtime": {
     "environment": "test",
-    "agent_timeout_seconds": 30
+    "agent_timeout_seconds": 30,
+    "sandbox": {
+      "strategy": "process"
+    }
   },
   "memory": {
     "enabled": true,
@@ -11,7 +14,8 @@
       "rules": [
         { "namespace_pattern": "agent:*:state", "read_min_level": 1, "write_min_level": 2 },
         { "namespace_pattern": "skill:*:cache:*", "read_min_level": 1, "write_min_level": 1 },
-        { "namespace_pattern": "pipeline:*", "read_min_level": 1, "write_min_level": 3 }
+        { "namespace_pattern": "pipeline:*", "read_min_level": 1, "write_min_level": 3 },
+        { "namespace_pattern": "event:*", "read_min_level": 1, "write_min_level": 2 }
       ]
     },
     "persistence": {
@@ -35,6 +39,10 @@
       "*.key",
       "id_rsa",
       "id_ed25519"
+    ],
+    "allowed_endpoints": [
+      "https://api.example.com",
+      "https://internal.example.com"
     ],
     "input_sanitization": {
       "enabled": true,

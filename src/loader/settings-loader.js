@@ -15,6 +15,11 @@ const DEFAULTS = {
     agent_timeout_seconds: 120,
     graceful_shutdown_timeout_seconds: 15,
     heartbeat_interval_seconds: 10,
+    sandbox: {
+      strategy: "process",
+      docker_image: "node:20-alpine",
+      wasm_module_path: "",
+    },
   },
   logging: {
     output_path: ".agents/logs/agent-{date}.jsonl",
@@ -52,6 +57,9 @@ const DEFAULTS = {
   memory: {
     enabled: true,
     backend: "in-process",
+    redis: {},
+    postgres: {},
+    vector: {},
     max_size_mb: 256,
     ttl_default_seconds: 3600,
     eviction_policy: "lru",

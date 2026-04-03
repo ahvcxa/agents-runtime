@@ -32,6 +32,14 @@ function makeHookDefs() {
       required:     true,
     },
     {
+      id:           "pre-network",
+      path:         ".agents/hooks/pre-network.hook.js",
+      absolutePath: path.join(PROJECT_ROOT, ".agents/hooks/pre-network.hook.js"),
+      export:       "preNetworkHook",
+      fires:        "before_network_access",
+      required:     true,
+    },
+    {
       id:           "post-skill",
       path:         ".agents/hooks/skill-lifecycle.hook.js",
       absolutePath: path.join(PROJECT_ROOT, ".agents/hooks/skill-lifecycle.hook.js"),
@@ -54,8 +62,30 @@ describe("HookRegistry", () => {
   test("registers all hooks from manifest defs", () => {
     const hooks = registry.list();
     expect(hooks).toContain("pre-read");
+    expect(hooks).toContain("pre-network");
     expect(hooks).toContain("pre-skill");
     expect(hooks).toContain("post-skill");
+  });
+
+  test("pre-network hook ALLOWS allowlisted endpoint for executor", async () => {
+    const results = await registry.dispatch("before_network_access", {
+      agent_id: "exec-agent",
+      auth_level: 2,
+      url: "https://api.example.com/v1/analyze",
+      settings,
+    });
+    expect(results[0].result).toEqual({ allowed: true });
+  });
+
+  test("pre-network hook BLOCKS non-allowlisted endpoint", async () => {
+    await expect(
+      registry.dispatch("before_network_access", {
+        agent_id: "exec-agent",
+        auth_level: 2,
+        url: "https://evil.example.net",
+        settings,
+      })
+    ).rejects.toThrow("SECURITY_VIOLATION");
   });
 
   test("pre-read hook ALLOWS a safe path", async () => {

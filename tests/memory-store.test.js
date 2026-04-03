@@ -14,6 +14,9 @@ const BASE_SETTINGS = {
   memory: {
     enabled:            true,
     backend:            "in-process",
+    redis:              {},
+    postgres:           {},
+    vector:             {},
     ttl_default_seconds: 3600,
     max_size_mb:        256,
     indexes: {
@@ -83,5 +86,23 @@ describe("MemoryStore", () => {
     mem.set("skill:analysis:cache:s2", { y: 2 });
     const stats = mem.stats();
     expect(stats.total_keys).toBeGreaterThanOrEqual(2);
+  });
+
+  test("supports adapter selection for redis backend", () => {
+    const cfg = JSON.parse(JSON.stringify(BASE_SETTINGS));
+    cfg.memory.backend = "redis";
+    const mem = createMemoryStore(cfg, 1, "observer-01", PROJECT_ROOT);
+    mem.set("skill:analysis:cache:r1", { ok: true });
+    expect(mem.get("skill:analysis:cache:r1")).toEqual({ ok: true });
+    expect(mem.stats().backend).toBe("redis");
+  });
+
+  test("supports adapter selection for postgres backend", () => {
+    const cfg = JSON.parse(JSON.stringify(BASE_SETTINGS));
+    cfg.memory.backend = "postgres";
+    const mem = createMemoryStore(cfg, 1, "observer-01", PROJECT_ROOT);
+    mem.set("skill:analysis:cache:p1", { ok: true });
+    expect(mem.get("skill:analysis:cache:p1")).toEqual({ ok: true });
+    expect(mem.stats().backend).toBe("postgres");
   });
 });

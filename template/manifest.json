@@ -19,6 +19,14 @@
       "required":    true
     },
     {
+      "id":          "pre-network",
+      "path":        ".agents/hooks/pre-network.hook.js",
+      "export":      "preNetworkHook",
+      "fires":       "before_network_access",
+      "description": "Validates outbound network requests against allow-list and authorization level.",
+      "required":    true
+    },
+    {
       "id":          "pre-skill",
       "path":        ".agents/hooks/skill-lifecycle.hook.js",
       "export":      "preSkillHook",

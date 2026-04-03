@@ -9,13 +9,28 @@
     "max_concurrent_agents": 4,
     "agent_timeout_seconds": 120,
     "graceful_shutdown_timeout_seconds": 15,
-    "heartbeat_interval_seconds": 10
+    "heartbeat_interval_seconds": 10,
+    "sandbox": {
+      "strategy": "process",
+      "docker_image": "node:20-alpine",
+      "wasm_module_path": ""
+    }
   },
 
   "memory": {
     "description": "Cross-Agent Memory subsystem. Provides shared, indexed state accessible to authorized agents. All writes are copy-on-write to prevent race conditions.",
     "enabled": true,
     "backend": "in-process",
+    "redis": {
+      "url": "redis://localhost:6379"
+    },
+    "postgres": {
+      "connection_string": "postgres://localhost:5432/agents"
+    },
+    "vector": {
+      "provider": "none",
+      "index_name": "agents_context"
+    },
     "max_size_mb": 256,
     "ttl_default_seconds": 3600,
     "eviction_policy": "lru",
@@ -173,6 +188,7 @@
       "pre-skill":   "Fires before any skill execution.",
       "post-skill":  "Fires after skill execution.",
       "pre-read":    "Fires before any filesystem read. Validates path against forbidden_file_patterns.",
+      "pre-network": "Fires before any outbound network call. Validates endpoint allow-list and authorization.",
       "post-write":  "Fires after any filesystem write. Triggers audit log entry.",
       "on-error":    "Fires on any unhandled agent error.",
       "on-shutdown": "Fires during graceful shutdown."

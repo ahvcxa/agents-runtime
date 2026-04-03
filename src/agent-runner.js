@@ -10,6 +10,7 @@ const path       = require("path");
 const fs         = require("fs");
 const { execFileSync } = require("child_process");
 const os         = require("os");
+const { executeInSandbox } = require("./sandbox/executor");
 
 class AgentRunner {
   /**
@@ -162,6 +163,24 @@ class AgentRunner {
    * to a no-op echo (useful for analysis skills that are driven by LLM context).
    */
   async _executeSkill(skillManifest, agentId, authLevel, input, memory, log) {
+    const tracer = this.runtime?.tracer;
+    const span = tracer?.startSpan("skill.execute", {
+      "agent.id": agentId,
+      "skill.id": skillManifest.id,
+    });
+
+    if (Array.isArray(input?.network_requests)) {
+      for (const req of input.network_requests) {
+        await this.hookRegistry.dispatch("before_network_access", {
+          agent_id: agentId,
+          auth_level: authLevel,
+          url: req?.url,
+          method: req?.method ?? "GET",
+          settings: this.settings,
+        });
+      }
+    }
+
     // Check if the SKILL.md declares a handler path
     const handlerPath = skillManifest.handler;
     if (handlerPath) {
@@ -170,14 +189,26 @@ class AgentRunner {
         const handler = require(absHandler);
         const fn = handler.execute ?? handler.run ?? handler.default ?? handler;
         if (typeof fn === "function") {
-          return await Promise.resolve(fn({ agentId, authLevel, input, memory, log }));
+          try {
+            return await executeInSandbox({
+              strategy: this.settings?.runtime?.sandbox?.strategy ?? "process",
+              timeoutMs: (this.settings?.runtime?.agent_timeout_seconds ?? 120) * 1000,
+              logger: this.logger,
+              run: () => fn({ agentId, authLevel, input, memory, log }),
+            });
+          } catch (err) {
+            span?.recordException?.(err);
+            throw err;
+          } finally {
+            span?.end?.();
+          }
         }
       }
     }
 
     // Default: return skill metadata + input echo (useful for LLM-side skills)
     log({ event_type: "INFO", message: `Skill '${skillManifest.id}' has no JS handler — returning echo.` });
-    return {
+    const fallback = {
       skill_id:   skillManifest.id,
       skill_name: skillManifest.name,
       version:    skillManifest.version,
@@ -185,6 +216,8 @@ class AgentRunner {
       note:       "No JS handler declared in SKILL.md frontmatter. LLM-driven skill context loaded.",
       skill_description: skillManifest.description ?? skillManifest.content?.slice(0, 300),
     };
+    span?.end?.();
+    return fallback;
   }
 }
 
