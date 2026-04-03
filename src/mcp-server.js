@@ -226,7 +226,12 @@ async function createMcpServer(projectRoot) {
           `🔧 **${patches.length} patch(es) generated** (dry_run=${dry_run ?? true})`,
           "",
           ...patches.map((p, i) =>
-            [`**Patch ${i + 1}**: ${p.file} — ${p.description}`, "```diff", p.diff, "```"].join("\n")
+            [
+              `**Patch ${i + 1}**: ${(p.files_modified?.[0] ?? "(unknown file)")} — ${(p._note ?? "Refactor patch")}`,
+              "```diff",
+              p.diff,
+              "```",
+            ].join("\n")
           ),
         ].join("\n");
         return { content: [{ type: "text", text }] };
@@ -268,22 +273,61 @@ async function createMcpServer(projectRoot) {
     async ({ agent_id, authorization_level, skill_set }) => {
       try {
         const rt = await getRuntime();
+        const role = ["Observer", "Executor", "Orchestrator"][authorization_level - 1];
+
         const agentConfig = {
           agent: {
             id: agent_id,
-            role: ["Observer", "Executor", "Orchestrator"][authorization_level - 1],
+            role,
             authorization_level,
             skill_set,
             read_only: authorization_level === 1,
           },
         };
-        // Run compliance directly — check each skill is registered and auth passes
+
         const lines = [`🔍 Compliance check for agent '${agent_id}' (level ${authorization_level})`];
         let passed = true;
 
+        if (!agent_id || !/^[a-z0-9][a-z0-9\-_]*$/.test(agent_id)) {
+          lines.push("  ❌ Agent id is invalid (must match ^[a-z0-9][a-z0-9\\-_]*$)");
+          passed = false;
+        } else {
+          lines.push("  ✅ Agent id format is valid");
+        }
+
+        if (![1, 2, 3].includes(authorization_level)) {
+          lines.push("  ❌ authorization_level must be one of: 1, 2, 3");
+          passed = false;
+        } else {
+          lines.push(`  ✅ Role resolved: ${role}`);
+        }
+
+        if (!Array.isArray(skill_set) || skill_set.length === 0) {
+          lines.push("  ❌ skill_set must include at least one skill id");
+          passed = false;
+        }
+
+        if (authorization_level === 1 && agentConfig.agent.read_only !== true) {
+          lines.push("  ❌ Observer (level 1) agents must be read_only=true");
+          passed = false;
+        } else {
+          lines.push(`  ✅ read_only policy looks valid (${agentConfig.agent.read_only})`);
+        }
+
+        const requiredHooks = ["pre-read", "pre-skill", "post-skill"];
+        const hookSet = new Set(rt.listHooks());
+        for (const hookId of requiredHooks) {
+          if (hookSet.has(hookId)) {
+            lines.push(`  ✅ Required hook '${hookId}' is registered`);
+          } else {
+            lines.push(`  ❌ Required hook '${hookId}' is missing`);
+            passed = false;
+          }
+        }
+
         for (const skillId of skill_set) {
           try {
-            const handler = await rt.skillRegistry.load(skillId, authorization_level);
+            rt.skillRegistry.load(skillId, authorization_level);
             lines.push(`  ✅ Skill '${skillId}' — registered and authorized`);
           } catch (e) {
             lines.push(`  ❌ Skill '${skillId}' — ${e.message}`);
