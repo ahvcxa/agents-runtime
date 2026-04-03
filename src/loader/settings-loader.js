@@ -1,0 +1,98 @@
+"use strict";
+/**
+ * src/loader/settings-loader.js
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Loads .agents/settings.json and merges defaults.
+ */
+
+const fs   = require("fs");
+const path = require("path");
+
+const DEFAULTS = {
+  runtime: {
+    environment: "development",
+    max_concurrent_agents: 4,
+    agent_timeout_seconds: 120,
+    graceful_shutdown_timeout_seconds: 15,
+    heartbeat_interval_seconds: 10,
+  },
+  logging: {
+    output_path: ".agents/logs/agent-{date}.jsonl",
+    rotation: "daily",
+    max_retained_days: 30,
+    verbosity_mode: "standard",
+  },
+  security: {
+    forbidden_file_patterns: [".env", ".env.*", "*.env", "*.pem", "*.key"],
+    allowed_endpoints: [],
+    input_sanitization: {
+      enabled: true,
+      max_input_length: 100000,
+      reject_null_bytes: true,
+      reject_path_traversal: true,
+    },
+  },
+  memory: {
+    enabled: true,
+    backend: "in-process",
+    max_size_mb: 256,
+    ttl_default_seconds: 3600,
+    eviction_policy: "lru",
+    indexes: {
+      key_value: { enabled: true },
+      tag_based: { enabled: true, max_result_set: 500 },
+    },
+  },
+  skills: {
+    registry_path: ".agents/skills/",
+    auto_discover: true,
+  },
+};
+
+/**
+ * Deep merge two objects. `override` takes precedence.
+ */
+function deepMerge(base, override) {
+  const result = { ...base };
+  for (const key of Object.keys(override ?? {})) {
+    if (
+      typeof override[key] === "object" &&
+      override[key] !== null &&
+      !Array.isArray(override[key]) &&
+      typeof base[key] === "object" &&
+      base[key] !== null
+    ) {
+      result[key] = deepMerge(base[key], override[key]);
+    } else {
+      result[key] = override[key];
+    }
+  }
+  return result;
+}
+
+/**
+ * Load settings.json and merge with defaults.
+ * @param {string} projectRoot
+ * @returns {object}
+ */
+function loadSettings(projectRoot) {
+  const settingsPath = path.join(projectRoot, ".agents", "settings.json");
+
+  if (!fs.existsSync(settingsPath)) {
+    console.warn(`[settings-loader] settings.json not found at ${settingsPath}. Using defaults.`);
+    return { ...DEFAULTS, _projectRoot: projectRoot };
+  }
+
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  } catch (err) {
+    throw new Error(`[settings-loader] Failed to parse settings.json: ${err.message}`);
+  }
+
+  const merged = deepMerge(DEFAULTS, raw);
+  merged._projectRoot = projectRoot;
+  return merged;
+}
+
+module.exports = { loadSettings, deepMerge };

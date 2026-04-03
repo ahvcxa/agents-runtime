@@ -1,0 +1,50 @@
+{
+  "name": "agents-runtime",
+  "version": "1.0.0",
+  "description": "Vendor-neutral AI agent runtime engine — static analysis, OWASP security audit, and skill execution for any project",
+  "main": "src/engine.js",
+  "bin": {
+    "agents": "./bin/agents.js"
+  },
+  "scripts": {
+    "start": "node bin/agents.js",
+    "test": "jest --testPathPattern=tests/ --forceExit",
+    "test:watch": "jest --watch --testPathPattern=tests/",
+    "test:coverage": "jest --testPathPattern=tests/ --forceExit --coverage",
+    "lint": "node --check bin/agents.js && node --check src/engine.js src/agent-runner.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahvcxa/agents-runtime.git"
+  },
+  "homepage": "https://github.com/ahvcxa/agents-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/ahvcxa/agents-runtime/issues"
+  },
+  "author": "Batuhan <ahvcxa>",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "ai-agents",
+    "runtime",
+    "static-analysis",
+    "security-audit",
+    "owasp",
+    "vendor-neutral",
+    "multi-agent",
+    "code-analysis",
+    "python",
+    "javascript"
+  ],
+  "license": "MIT"
+}
+

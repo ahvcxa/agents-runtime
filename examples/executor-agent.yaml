@@ -1,0 +1,8 @@
+agent:
+  id: "executor-01"
+  role: "Executor"
+  skill_set:
+    - "refactor"
+    - "code-analysis"
+  authorization_level: 2
+  read_only: false
