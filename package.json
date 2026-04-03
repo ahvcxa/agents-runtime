@@ -10,9 +10,9 @@
   "scripts": {
     "start": "node bin/agents.js",
     "mcp": "node bin/mcp.js",
-    "test": "jest --testPathPattern=tests/ --forceExit",
+    "test": "jest --testPathPattern=tests/",
     "test:watch": "jest --watch --testPathPattern=tests/",
-    "test:coverage": "jest --testPathPattern=tests/ --forceExit --coverage",
+    "test:coverage": "jest --testPathPattern=tests/ --coverage",
     "lint": "node --check bin/agents.js && node --check src/engine.js src/agent-runner.js"
   },
   "repository": {

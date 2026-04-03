@@ -6,9 +6,14 @@ const { promisify } = require("util");
 
 const execFileAsync = promisify(execFile);
 
-function timeoutPromise(ms) {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Sandbox timeout exceeded (${ms}ms)`)), ms);
+function withTimeout(promiseLike, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Sandbox timeout exceeded (${ms}ms)`)), ms);
+  });
+
+  return Promise.race([Promise.resolve(promiseLike), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
   });
 }
 
@@ -25,7 +30,7 @@ async function executeInSandbox({
   const mode = (strategy ?? "process").toLowerCase();
   const effectiveTimeout = timeoutMs ?? 120000;
 
-  const executeLocal = async () => Promise.race([Promise.resolve(run()), timeoutPromise(effectiveTimeout)]);
+  const executeLocal = async () => withTimeout(run(), effectiveTimeout);
 
   if (mode === "process") return executeLocal();
 
