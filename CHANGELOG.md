@@ -11,6 +11,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added MCP multi-agent lifecycle tools:
+  - `delegate_task`
+  - `send_agent_message`
+  - `task_status`
+  - `ack_task`
+  - `retry_task`
+  - `semantic_events`
+- Added semantic event memory APIs in runtime and event bus:
+  - `AgentRuntime.semanticEventHistory(query, topK)`
+  - `EventBus.semanticHistory(query, topK)`
+- Added trace-linked result metadata propagation in skill execution outputs.
+
+### Changed
+
+- Hardened async performance paths:
+  - Compliance temp-file I/O switched to `fs/promises` in `src/agent-runner.js`.
+  - Temp cleanup now uses async unlink for non-blocking shutdown behavior.
+- Improved sandbox controls:
+  - Added docker feature gate (`docker_enabled`) and resource controls (`docker_cpus`, `docker_memory`).
+  - Docker strategy now attempts isolated execution with safe fallback behavior.
+- Extended memory semantics:
+  - Added `semantic_events` config block and vector-like text similarity fallback behavior.
+  - Event envelopes are now persisted into semantic memory when enabled.
+- Updated MCP tool output handling with streaming-style chunked responses (`stream: true`).
+
+### Tests
+
+- Expanded coverage to **39 tests / 8 suites**.
+- Extended tests for semantic event indexing/query, docker sandbox gating, and MCP multi-agent tool registration.
+
+---
+
+## [1.1.0] — 2026-04-03
+
+### Added
+
 - Introduced an adapter-based memory architecture in `src/memory/memory-store.js` with pluggable backends:
   - `InProcessMemoryDriver`
   - `FileMemoryDriver`
@@ -92,4 +128,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.1.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.0.0
