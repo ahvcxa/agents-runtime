@@ -6,16 +6,62 @@
  * compliance → pre-skill hook → skill execution → post-skill hook → event emit
  */
 
-const path       = require("path");
-const fs         = require("fs");
-const fsp        = require("fs/promises");
-const { execFile } = require("child_process");
-const os         = require("os");
-const { promisify } = require("util");
+const path         = require("path");
+const fs           = require("fs");
+const fsp          = require("fs/promises");
+const { spawn }      = require("child_process");
+const os           = require("os");
 const { randomUUID } = require("crypto");
-const { executeInSandbox } = require("./sandbox/executor");
+const { ExecutorFactory } = require("./executors/executor-factory");
 
-const execFileAsync = promisify(execFile);
+// ─── Async spawn helper ────────────────────────────────────────────────────────
+/**
+ * Non-blocking process execution using spawn().
+ * Unlike execFile/promisify, this does NOT block the event loop under concurrent load.
+ * stdout and stderr are streamed independently, supporting large outputs.
+ *
+ * @param {string}   command
+ * @param {string[]} args
+ * @param {object}   [options]
+ * @param {string}   [options.cwd]
+ * @param {number}   [options.timeoutMs]
+ * @returns {Promise<{ stdout: string, stderr: string, code: number }>}
+ */
+function spawnAsync(command, args, options = {}) {
+  const { cwd, timeoutMs = 30000 } = options;
+
+  return new Promise((resolve, reject) => {
+    const child  = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout   = "";
+    let stderr   = "";
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`[spawnAsync] Process timed out after ${timeoutMs}ms: ${command}`));
+    }, timeoutMs);
+
+    child.stdout.on("data", (d) => { stdout += d; });
+    child.stderr.on("data", (d) => { stderr += d; });
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve({ stdout, stderr, code });
+      } else {
+        const err = new Error(`[spawnAsync] Process exited with code ${code}`);
+        err.stdout = stdout;
+        err.stderr = stderr;
+        err.code   = code;
+        reject(err);
+      }
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
 
 class AgentRunner {
   /**
@@ -127,7 +173,7 @@ class AgentRunner {
     };
   }
 
-  /** Run the compliance-check.js helper as a subprocess */
+  /** Run the compliance-check.js helper as a non-blocking subprocess */
   async _runComplianceCheck(agentConfig) {
     const checkerPath = path.join(this.projectRoot, ".agents", "helpers", "compliance-check.js");
     if (!fs.existsSync(checkerPath)) {
@@ -136,7 +182,7 @@ class AgentRunner {
     }
 
     // Validate checkerPath (CWE-78: Command Injection prevention)
-    const resolved = path.resolve(checkerPath);
+    const resolved    = path.resolve(checkerPath);
     const allowedBase = path.resolve(this.projectRoot, ".agents", "helpers");
     if (!resolved.startsWith(allowedBase)) {
       throw new Error("[compliance] Invalid checker path detected (path traversal)");
@@ -147,9 +193,10 @@ class AgentRunner {
     await fsp.writeFile(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {
-      await execFileAsync("node", [checkerPath, "--agent-config", tmpFile], {
-        cwd:    this.projectRoot,
-        encoding: "utf8",
+      // spawnAsync is non-blocking — does not stall the event loop for concurrent agents
+      await spawnAsync("node", [checkerPath, "--agent-config", tmpFile], {
+        cwd:       this.projectRoot,
+        timeoutMs: 15000,
       });
     } catch (err) {
       const output = err.stdout ?? err.stderr ?? err.message;
@@ -172,77 +219,56 @@ class AgentRunner {
   }
 
   /**
-   * Execute the actual skill. Looks for a JS handler first, then falls back
-   * to a no-op echo (useful for analysis skills that are driven by LLM context).
+   * Execute the actual skill by delegating to the appropriate executor.
+   * Uses ExecutorFactory to select HandlerExecutor (JS handler) or EchoExecutor (LLM fallback).
    */
   async _executeSkill(skillManifest, agentId, authLevel, input, memory, log, runTraceId) {
-    const tracer = this.runtime?.tracer;
-    const traceId = runTraceId ?? tracer?.traceId?.();
-    const span = tracer?.startSpan("skill.execute", {
-      "agent.id": agentId,
-      "skill.id": skillManifest.id,
-      "trace.id": traceId,
+    // Validate and gate network requests before execution
+    await this._validateNetworkRequests(input, agentId, authLevel);
+
+    const traceId = runTraceId ?? this.runtime?.tracer?.traceId?.();
+    const executor = ExecutorFactory.for(skillManifest, {
+      runtime:     this.runtime,
+      projectRoot: this.projectRoot,
+      logger:      this.logger,
+      settings:    this.settings,
     });
 
-    if (Array.isArray(input?.network_requests)) {
-      for (const req of input.network_requests) {
-        await this.hookRegistry.dispatch("before_network_access", {
-          agent_id: agentId,
-          auth_level: authLevel,
-          url: req?.url,
-          method: req?.method ?? "GET",
-          settings: this.settings,
-        });
-      }
-    }
+    return executor.execute(skillManifest, agentId, authLevel, input, memory, log, traceId);
+  }
 
-    // Check if the SKILL.md declares a handler path
-    const handlerPath = skillManifest.handler;
-    if (handlerPath) {
-      const absHandler = path.resolve(this.projectRoot, handlerPath);
-      if (fs.existsSync(absHandler)) {
-        const handler = require(absHandler);
-        const fn = handler.execute ?? handler.run ?? handler.default ?? handler;
-        if (typeof fn === "function") {
-          try {
-            const result = await executeInSandbox({
-              strategy: this.settings?.runtime?.sandbox?.strategy ?? "process",
-              timeoutMs: (this.settings?.runtime?.agent_timeout_seconds ?? 120) * 1000,
-              logger: this.logger,
-              sandboxSettings: this.settings?.runtime?.sandbox ?? {},
-              projectRoot: this.projectRoot,
-              handlerPath: absHandler,
-              handlerExport: handler.execute ? "execute" : (handler.run ? "run" : (handler.default ? "default" : null)),
-              context: { agentId, authLevel, input, settings: this.settings, projectRoot: this.projectRoot },
-              run: () => fn({ agentId, authLevel, input, memory, log }),
-            });
-            if (result && typeof result === "object" && !Array.isArray(result)) {
-              return { ...result, trace_id: traceId };
-            }
-            return result;
-          } catch (err) {
-            span?.recordException?.(err);
-            throw err;
-          } finally {
-            span?.end?.();
-          }
-        }
-      }
-    }
+  /**
+   * Validate network requests and dispatch before_network_access hooks.
+   * @param {object} input
+   * @param {string} agentId
+   * @param {number} authLevel
+   */
+  async _validateNetworkRequests(input, agentId, authLevel) {
+    if (!Array.isArray(input?.network_requests)) return;
 
-    // Default: return skill metadata + input echo (useful for LLM-side skills)
-    log({ event_type: "INFO", message: `Skill '${skillManifest.id}' has no JS handler — returning echo.` });
-    const fallback = {
-      skill_id:   skillManifest.id,
-      skill_name: skillManifest.name,
-      version:    skillManifest.version,
-      input_echo: input,
-      note:       "No JS handler declared in SKILL.md frontmatter. LLM-driven skill context loaded.",
-      skill_description: skillManifest.description ?? skillManifest.content?.slice(0, 300),
-      trace_id: traceId,
-    };
-    span?.end?.();
-    return fallback;
+    for (const req of input.network_requests) {
+      const url = req?.url;
+
+      // Null/type validation
+      if (!url || typeof url !== "string") {
+        throw new Error("[agent-runner] Network request URL is required and must be a non-empty string");
+      }
+
+      // Format validation
+      try {
+        new URL(url);
+      } catch {
+        throw new Error(`[agent-runner] Invalid URL format: ${url}`);
+      }
+
+      await this.hookRegistry.dispatch("before_network_access", {
+        agent_id:   agentId,
+        auth_level: authLevel,
+        url,
+        method:     req?.method ?? "GET",
+        settings:   this.settings,
+      });
+    }
   }
 }
 

@@ -27,7 +27,9 @@ function today() {
 }
 
 /** Redact sensitive fields from a log payload */
-function redact(obj, patterns, replacement = "[REDACTED]") {
+function redact(obj, patterns, replacement = "[REDACTED]", _depth = 0) {
+  const MAX_DEPTH = 10;
+  if (_depth >= MAX_DEPTH) return "[MAX_DEPTH_EXCEEDED]";
   if (!obj || typeof obj !== "object") return obj;
   const result = { ...obj };
   for (const key of Object.keys(result)) {
@@ -35,7 +37,7 @@ function redact(obj, patterns, replacement = "[REDACTED]") {
     if (patterns.some((p) => lower.includes(p))) {
       result[key] = replacement;
     } else if (typeof result[key] === "object" && result[key] !== null) {
-      result[key] = redact(result[key], patterns, replacement);
+      result[key] = redact(result[key], patterns, replacement, _depth + 1);
     }
   }
   return result;

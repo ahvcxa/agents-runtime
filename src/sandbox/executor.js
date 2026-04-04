@@ -6,6 +6,37 @@ const { promisify } = require("util");
 
 const execFileAsync = promisify(execFile);
 
+// ─── Security: Docker binary whitelist ────────────────────────────────────────
+/**
+ * Allowed Docker binary paths.
+ * Prevents command injection if docker_image / dockerPath is supplied from config.
+ * @see CWE-78 (OS Command Injection)
+ */
+const ALLOWED_DOCKER_PATHS = new Set([
+  "/usr/bin/docker",
+  "/usr/local/bin/docker",
+  "/opt/docker/bin/docker",
+  "/opt/homebrew/bin/docker", // macOS Homebrew
+]);
+
+/**
+ * Validate that the resolved Docker binary path is in the whitelist.
+ * @param {string} dockerPath
+ * @returns {string} The validated path (unchanged)
+ * @throws {Error} If the path is not allowed
+ */
+function validateDockerPath(dockerPath) {
+  const resolved = path.resolve(dockerPath);
+  if (!ALLOWED_DOCKER_PATHS.has(resolved)) {
+    throw new Error(
+      `[sandbox] Docker binary path '${resolved}' is not in the allowed list. ` +
+      `Allowed paths: ${[...ALLOWED_DOCKER_PATHS].join(", ")}`
+    );
+  }
+  return resolved;
+}
+
+
 function withTimeout(promiseLike, ms) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -60,7 +91,8 @@ async function executeInSandbox({
     ];
 
     try {
-      const { stdout } = await execFileAsync("docker", dockerCmd, {
+      const safeDockerBin = validateDockerPath(sandboxCfg.docker_path ?? "/usr/bin/docker");
+      const { stdout } = await execFileAsync(safeDockerBin, dockerCmd, {
         timeout: effectiveTimeout,
         encoding: "utf8",
         maxBuffer: 1024 * 1024,
