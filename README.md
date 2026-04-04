@@ -46,7 +46,8 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 | 🔒 **Security Hooks** | `pre-read` hook enforces path traversal protection at framework level |
 | 📋 **ACL Memory** | Authorization-level-based memory namespaces (Observer / Executor / Orchestrator) |
 | 📦 **Zero Config** | One script installs the full `.agents/` config into any existing project |
-| ✅ **21 Tests** | Jest test suite covering engine, hooks, memory, MCP server, and manifest validation |
+| ✅ **87 Tests** | Jest test suite covering engine, hooks, memory, MCP server, executors, validators, AST analyzer |
+| 🔬 **AST Analysis** | Optional deep Python analysis via `ast` module — detects exec/eval/pickle beyond regex |
 
 ---
 
@@ -56,6 +57,7 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 
 - Node.js ≥ 18.0.0
 - npm ≥ 9.0.0
+- Python 3.8+ *(optional — enables deep AST-based analysis for Python files)*
 
 ### 1. Clone the runtime
 
@@ -125,18 +127,38 @@ agents-runtime/              ← repo root
 │   └── mcp.js               # MCP server entry point
 ├── src/
 │   ├── engine.js            # AgentRuntime — central orchestrator
-│   ├── agent-runner.js      # Skill lifecycle pipeline
+│   ├── agent-runner.js      # Skill lifecycle pipeline (spawnAsync, ExecutorFactory)
 │   ├── analyzers/
-│   │   └── python-analyzer.js
+│   │   ├── python-analyzer.js        # Barrel: regex + AST analysis
+│   │   ├── python-ast-analyzer.js    # Deep AST analysis via Python subprocess
+│   │   ├── py-cc-analyzer.js         # Cyclomatic complexity
+│   │   ├── py-dry-analyzer.js        # DRY violations
+│   │   ├── py-security-analyzer.js   # OWASP patterns
+│   │   ├── py-solid-analyzer.js      # SOLID principles
+│   │   └── py-cognitive-analyzer.js  # Cognitive complexity
+│   ├── executors/
+│   │   ├── base-executor.js          # Abstract executor interface
+│   │   ├── handler-executor.js       # JS handler file execution
+│   │   ├── echo-executor.js          # LLM-driven skill fallback
+│   │   └── executor-factory.js       # Strategy selector
 │   ├── loader/
 │   │   ├── manifest-loader.js
 │   │   ├── settings-loader.js
 │   │   └── skill-loader.js
 │   ├── registry/
-│   │   ├── hook-registry.js
+│   │   ├── hook-registry.js          # EXPORT_NAMES_MAP, ALLOWED_HOOK_EVENTS
 │   │   └── skill-registry.js
 │   ├── memory/
-│   │   └── memory-store.js
+│   │   ├── memory-store.js           # ACL-backed KV store with TTL
+│   │   ├── semantic-memory.js        # Semantic event indexing (SRP)
+│   │   └── drivers/                  # in-process, file, redis, postgres, vector
+│   ├── mcp/
+│   │   ├── tools-register.js
+│   │   ├── tool-helpers.js
+│   │   └── validators/
+│   │       └── compliance-validator.js  # Extracted from mcp-server (CC 12→3)
+│   ├── sandbox/
+│   │   └── executor.js              # Docker whitelist + process/docker/wasm strategies
 │   └── events/
 │       └── event-bus.js
 ├── template/                ← installed into target projects by setup-agents.sh
@@ -350,10 +372,25 @@ npm test
 ```
 
 ```
-Test Suites: 5 passed, 5 total
-Tests:       21 passed, 21 total
-Time:        ~0.5s
+Test Suites: 12 passed, 12 total
+Tests:       87 passed, 87 total
+Time:        ~0.7s
 ```
+
+| Test Suite | Covers |
+|---|---|
+| `engine.test.js` | AgentRuntime boot, shutdown |
+| `agent-runner.test.js` (via engine) | Lifecycle pipeline |
+| `hook-registry.test.js` | Hook dispatch, inference |
+| `memory-store.test.js` | TTL, ACL, tag queries, semantic search |
+| `semantic-memory.test.js` | SemanticMemoryClient SRP |
+| `executor-factory.test.js` | Strategy selection, EchoExecutor output |
+| `compliance-validator.test.js` | All 6 validation checks |
+| `python-ast-analyzer.test.js` | AST findings, graceful degradation |
+| `mcp-server.test.js` | MCP tool registration |
+| `manifest-loader.test.js` | Fixture loading |
+| `sandbox.test.js` | Executor strategies |
+| `event-bus.test.js` | Domain event dispatch |
 
 ---
 
