@@ -8,6 +8,32 @@
 const path = require("path");
 const fs   = require("fs");
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+/**
+ * Lifecycle events a hook can fire on (O(1) lookup).
+ * Prevents typo-based misregistrations at boot time.
+ */
+const ALLOWED_HOOK_EVENTS = new Set([
+  "before_filesystem_read",
+  "before_network_access",
+  "before_skill_execution",
+  "after_skill_execution",
+  "on_shutdown",
+]);
+
+/**
+ * Canonical export function names, derived from hook id conventions.
+ * Used as a fast lookup before falling back to dynamic inference.
+ * Example: "pre-read" → "preReadHook"
+ */
+const EXPORT_NAMES_MAP = {
+  "pre-read":        "preReadHook",
+  "pre-skill":       "preSkillHook",
+  "post-skill":      "postSkillHook",
+  "pre-network":     "preNetworkHook",
+  "on-shutdown":     "onShutdownHook",
+};
+
 class HookRegistry {
   /**
    * @param {object[]} hookDefs - manifest.json#hooks (with absolutePath resolved)
@@ -97,9 +123,9 @@ class HookRegistry {
 
   /** Infer the export function name from hook id conventions */
   _inferExportName(hookId) {
-    // "pre-read"    → "preReadHook"
-    // "pre-skill"   → "preSkillHook"
-    // "post-skill"  → "postSkillHook"
+    // Fast O(1) lookup for known hook ids
+    if (EXPORT_NAMES_MAP[hookId]) return EXPORT_NAMES_MAP[hookId];
+    // Dynamic fallback: "pre-read" → "preReadHook"
     const parts = hookId.split("-");
     return parts.map((p, i) => i === 0 ? p : p[0].toUpperCase() + p.slice(1)).join("") + "Hook";
   }
