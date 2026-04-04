@@ -17,15 +17,18 @@ const path        = require("path");
 const fs          = require("fs");
 const yaml        = require("js-yaml");
 
-const { createRuntime } = require("../src/engine");
-const { exportReport } = require("../src/report/exporter");
+const { createRuntime }    = require("../src/engine");
+const { exportReport }     = require("../src/report/exporter");
+const { RunHistoryStore }  = require("../src/diff/run-history-store");
+const { compare }          = require("../src/diff/diff-engine");
+const { formatTerminal }   = require("../src/diff/diff-formatter");
 
 const program = new Command();
 
 program
   .name("agents")
   .description("Vendor-neutral AI agent runtime CLI")
-  .version("1.0.0");
+  .version("1.3.0");
 
 // ─── Shared option ───────────────────────────────────────────────────────────
 function projectRoot(opts) {
@@ -60,6 +63,8 @@ program
   .option("-e, --export <path>",  "Export result to file (.json/.html/.pdf)")
   .option("-f, --format <type>",  "Export format override: json|html|pdf")
   .option("-v, --verbose",        "Verbose logging")
+  .option("--diff",               "Show diff vs. previous run after execution")
+  .option("--baseline <ref>",     "Baseline for diff: index (0=latest) or git SHA prefix (default: 1=second-latest)")
   .action(async (opts) => {
     const root        = projectRoot(opts);
     const agentConfig = loadAgentConfig(opts.config);
@@ -88,6 +93,28 @@ program
           format,
         });
         console.log(`\x1b[36m[EXPORT]\x1b[0m Report written: ${exportedPath}`);
+      }
+
+      // ── Diff output ──────────────────────────────────────────────────────────
+      if (opts.diff && success) {
+        const historyStore = new RunHistoryStore(root);
+        // Wait a tick for the async save in agent-runner to flush
+        await new Promise(r => setTimeout(r, 200));
+        const baselineRef = opts.baseline !== undefined
+          ? (isNaN(Number(opts.baseline)) ? opts.baseline : Number(opts.baseline))
+          : 1;
+        const { current, baseline } = await historyStore.loadPair(opts.skill, { baselineRef });
+        if (!baseline) {
+          console.log("\x1b[33m[diff]\x1b[0m No previous run found — run the skill again to see a diff.");
+        } else {
+          const currentFindings  = current?.result?.findings  ?? [];
+          const baselineFindings = baseline?.result?.findings ?? [];
+          const diff = compare(baselineFindings, currentFindings);
+          console.log(formatTerminal(diff, {
+            current:  { git_sha: current?.git_sha,  timestamp: current?.timestamp },
+            baseline: { git_sha: baseline?.git_sha, timestamp: baseline?.timestamp },
+          }));
+        }
       }
 
       await runtime.shutdown();
@@ -189,6 +216,50 @@ program
       console.error(`\x1b[31m[ERROR]\x1b[0m ${err.message}`);
       process.exit(1);
     }
+  });
+
+// ─── agents diff ─────────────────────────────────────────────────────────────
+program
+  .command("diff")
+  .description("Compare the two most recent runs of a skill (no execution)")
+  .requiredOption("-s, --skill <id>",    "Skill ID to diff")
+  .option("-p, --project <dir>",         "Project root (default: cwd)")
+  .option("-n, --baseline <ref>",        "Baseline ref: index or git SHA prefix (default: 1)")
+  .option("--json",                      "Output raw diff as JSON")
+  .action(async (opts) => {
+    const root  = projectRoot(opts);
+    const store = new RunHistoryStore(root);
+
+    const baselineRef = opts.baseline !== undefined
+      ? (isNaN(Number(opts.baseline)) ? opts.baseline : Number(opts.baseline))
+      : 1;
+
+    const { current, baseline } = await store.loadPair(opts.skill, { baselineRef });
+
+    if (!current) {
+      console.error(`\x1b[33m[diff]\x1b[0m No runs found for skill '${opts.skill}'.`);
+      console.error(`       Run it first: agents run --skill ${opts.skill} ...`);
+      process.exit(1);
+    }
+    if (!baseline) {
+      console.error(`\x1b[33m[diff]\x1b[0m Only one run found — run the skill again to compare.`);
+      process.exit(1);
+    }
+
+    const currentFindings  = current?.result?.findings  ?? [];
+    const baselineFindings = baseline?.result?.findings ?? [];
+    const diff = compare(baselineFindings, currentFindings);
+
+    if (opts.json) {
+      console.log(JSON.stringify({ current, baseline, diff }, null, 2));
+    } else {
+      console.log(formatTerminal(diff, {
+        current:  { git_sha: current?.git_sha,  timestamp: current?.timestamp },
+        baseline: { git_sha: baseline?.git_sha, timestamp: baseline?.timestamp },
+      }));
+    }
+
+    process.exit(diff.summary.regressed ? 1 : 0);
   });
 
 program.parse(process.argv);

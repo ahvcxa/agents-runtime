@@ -13,6 +13,7 @@ const { spawn }      = require("child_process");
 const os           = require("os");
 const { randomUUID } = require("crypto");
 const { ExecutorFactory } = require("./executors/executor-factory");
+const { RunHistoryStore } = require("./diff/run-history-store");
 
 // ─── Async spawn helper ────────────────────────────────────────────────────────
 /**
@@ -164,6 +165,17 @@ class AgentRunner {
       agent_id: agentId, skill_id: skillId, invocation_key: invocationKey,
       result, success, duration_ms, memory, skill_manifest: skillManifest, log, emit,
     });
+
+    // 7. Persist run history (async, non-blocking — errors are swallowed)
+    if (success) {
+      const historyStore = new RunHistoryStore(this.projectRoot);
+      historyStore.save(skillId, result, {
+        agent_id:   agentId,
+        auth_level: authLevel,
+        duration_ms,
+        trace_id:   runTraceId,
+      }).catch(() => { /* non-critical — never breaks the run */ });
+    }
 
     return {
       success,
