@@ -15,6 +15,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] — 2026-04-04
+
+### Added
+
+- **AST-based Python analyzer** (`src/analyzers/python-ast-analyzer.js`) — deep
+  security analysis via Python's native `ast` module run in a subprocess. Detects
+  vulnerabilities that regex cannot catch:
+  - `exec()` calls → CRITICAL (CWE-78)
+  - `eval()` calls → HIGH (CWE-78)
+  - `pickle.loads()` → CRITICAL (CWE-502, OWASP A08:2021)
+  - `subprocess` / `Popen` usage → MEDIUM (CWE-78)
+  - Dangerous imports (`pickle`, `marshal`, `ctypes`, `cffi`) → MEDIUM (CWE-676)
+  - Python syntax errors surfaced as HIGH findings
+  - Graceful degradation: if Python 3.8+ is unavailable, regex-based results are
+    returned unchanged with `available: false`
+- **ExecutorFactory pattern** (`src/executors/`) — Strategy pattern for skill
+  execution; decomposes `_executeSkill()` (CC=13) into pluggable classes:
+  - `BaseExecutor` — abstract interface
+  - `HandlerExecutor` — JS handler file execution via sandbox
+  - `EchoExecutor` — LLM-driven skill fallback (no JS handler required)
+  - `ExecutorFactory` — selects correct executor at runtime
+- **SemanticMemoryClient** (`src/memory/semantic-memory.js`) — extracted from
+  `MemoryStoreClient` per SOLID/SRP; handles semantic event indexing and search
+- **ComplianceValidator** (`src/mcp/validators/compliance-validator.js`) —
+  extracted from `compliance_check` MCP tool; each validation check is its own
+  method (CC reduced from 12 to 3)
+- **`EXPORT_NAMES_MAP` / `ALLOWED_HOOK_EVENTS`** constants in `hook-registry.js`
+  for O(1) hook name resolution instead of O(n) dynamic inference fallback
+
+### Fixed
+
+- **Race condition (CWE-362)**: `FileMemoryDriver.upsert/get/delete` now properly
+  `await this._ensureReady()` — fire-and-forget pattern eliminated, no more silent
+  data loss when reads occur before file load completes
+- **Stack overflow**: `redact()` in `structured-logger.js` now tracks recursion
+  depth (`maxDepth=10`) to prevent stack overflow on circular or deeply nested objects
+- **Injection prevention (CWE-78)**: Docker binary path validated against
+  `ALLOWED_DOCKER_PATHS` whitelist before any subprocess spawn in `sandbox/executor.js`
+- **Network request validation**: URL null-check + `new URL()` format validation
+  added before `before_network_access` hook dispatch in `agent-runner.js`
+- **Query injection guard**: `semanticSearch()` now rejects non-string or empty
+  queries with a clear error before any processing
+
+### Changed
+
+- **Non-blocking subprocess** (`agent-runner.js`): replaced `execFile/promisify`
+  with `spawnAsync()` — streams stdout/stderr independently, does not stall the
+  Node.js event loop under concurrent agent load
+- **Python analysis is now async**: `analyzeCodePython()` and `auditSecurityPython()`
+  return `Promise<Finding[]>` (was synchronous) to accommodate the AST subprocess pass
+
+### Tests
+
+- Expanded coverage from **39 tests / 8 suites** to **87 tests / 12 suites** (+48 tests)
+- New test suites: `executor-factory.test.js`, `compliance-validator.test.js`,
+  `semantic-memory.test.js`, `python-ast-analyzer.test.js`
+- All 87 tests pass on Node.js 18, 20, and 22
+
+### CI
+
+- Added `setup-python@v5` step to CI matrix so AST analyzer runs at full
+  capability in CI (no graceful degradation on ubuntu-latest)
+
+
 ## [1.2.1] — 2026-04-03
 
 ### Fixed
@@ -132,6 +196,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[1.1.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.1.0
+[1.3.0]: https://github.com/ahvcxa/agents-runtime/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.2.1
+[1.1.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.0.0
