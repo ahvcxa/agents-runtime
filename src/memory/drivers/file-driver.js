@@ -68,19 +68,19 @@ class FileMemoryDriver extends InProcessMemoryDriver {
     await this._initPromise;
   }
 
-  upsert(key, entry) {
-    this._ensureReady().catch(() => undefined);
+  async upsert(key, entry) {
+    await this._ensureReady();
     this.store.set(key, entry);
     this._flush();
   }
 
-  get(key) {
-    this._ensureReady().catch(() => undefined);
+  async get(key) {
+    await this._ensureReady();
     return this.store.get(key);
   }
 
-  delete(key) {
-    this._ensureReady().catch(() => undefined);
+  async delete(key) {
+    await this._ensureReady();
     this.store.delete(key);
     this._flush();
   }

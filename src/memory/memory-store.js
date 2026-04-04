@@ -165,10 +165,13 @@ class MemoryStoreClient {
   }
 
   semanticSearch(query, options = {}) {
+    // Input validation — reject non-string or empty queries early
+    if (typeof query !== "string" || query.trim().length === 0) {
+      throw new Error("[memory] semanticSearch query must be a non-empty string");
+    }
     const semanticCfg = this.settings?.semantic_events ?? {};
     const topK = options.top_k ?? semanticCfg.top_k ?? 5;
-    const queryText = String(query ?? "").toLowerCase();
-    if (!queryText) return [];
+    const queryText = query.toLowerCase();
 
     if (typeof this.adapter.similarityQuery === "function") {
       return this.adapter.similarityQuery(queryText, topK);
