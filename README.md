@@ -207,13 +207,16 @@ Commands:
   check   Run compliance check for an agent config
   list    List registered skills and hooks
   events  Show recent domain events from memory
+  diff    Compare the two most recent runs of a skill (no execution)
 
 Options:
   --config <path>   Path to agent YAML config file
   --project <path>  Path to project root (contains .agents/)
-  --skill <id>      Skill to execute (for 'run' command)
+  --skill <id>      Skill to execute (for 'run' and 'diff' commands)
   --input <json>    JSON input to pass to the skill handler
   -v, --verbose     Enable verbose output
+  --diff            Show diff vs. previous run after execution
+  --baseline <ref>  Baseline for diff: index or git SHA prefix (default: 1)
   -h, --help        Display help
 ```
 
@@ -226,18 +229,24 @@ node bin/agents.js list --project ./my-project
 # Compliance check
 node bin/agents.js check --config ./my-project/agent.yaml --project ./my-project
 
-# Full code analysis of a Python + JS project
+# Full code analysis of a Python + JS project (with diff/trend output)
 node bin/agents.js run \
   --config ./my-project/agent.yaml \
   --skill code-analysis \
   --input '{"files":["src/","tests/"],"project_root":"./my-project"}' \
-  --project ./my-project
+  --project ./my-project \
+  --diff
 
 # Security audit
 node bin/agents.js run \
   --config ./my-project/agent.yaml \
   --skill security-audit \
   --input '{"files":["src/",".env.example","package.json"],"project_root":"./my-project"}' \
+  --project ./my-project
+
+# Compare the two most recent runs of security audit (without running analysis)
+node bin/agents.js diff \
+  --skill security-audit \
   --project ./my-project
 ```
 
