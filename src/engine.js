@@ -19,6 +19,8 @@ const { AgentRunner }    = require("./agent-runner");
 const { createTracer }   = require("./telemetry/tracer");
 const { createMemoryStore } = require("./memory/memory-store");
 const { MCPManager } = require("./mcp/client/mcp-manager");
+const { createMemoryProvider } = require("./memory/providers/memory-provider-factory");
+const { SandboxManager } = require("./sandbox/sandbox-manager");
 
 class AgentRuntime {
   /**
@@ -51,6 +53,8 @@ class AgentRuntime {
     this.eventBus = new EventBus(this.logger, { semanticMemory: this.semanticMemory });
     this.tracer = createTracer("agents-runtime");
     this.mcpManager = new MCPManager(this.settings, this.logger);
+    this.cognitiveMemory = createMemoryProvider(this.settings);
+    this.sandboxManager = new SandboxManager(this.settings, this.logger);
 
     this.logger.log({
       event_type: "INFO",
@@ -67,6 +71,12 @@ class AgentRuntime {
 
     // 5. Optional MCP client layer (v2.0)
     await this.mcpManager.init();
+
+    // 6. Cognitive memory layer (v2.0)
+    await this.cognitiveMemory.init();
+
+    // 7. Sandbox provider layer (v2.0)
+    await this.sandboxManager.init();
 
     this._ready = true;
     this.logger.log({ event_type: "INFO", message: "AgentRuntime ready." });
@@ -154,12 +164,58 @@ class AgentRuntime {
     return this.mcpManager.healthCheck();
   }
 
+  async rememberSession(sessionId, role, content, metadata = {}) {
+    this._assertReady();
+    const key = `session:${sessionId}:${Date.now()}`;
+    await this.cognitiveMemory.store(key, { role, content, metadata }, {
+      namespace: "session",
+      session_id: sessionId,
+      role,
+    });
+    return key;
+  }
+
+  async rememberLongTerm(key, value, options = {}) {
+    this._assertReady();
+    await this.cognitiveMemory.store(key, value, {
+      namespace: "long_term",
+      text: options.text || JSON.stringify(value),
+      metadata: options.metadata || {},
+    });
+    return key;
+  }
+
+  async retrieveSession(sessionId, key = "*") {
+    this._assertReady();
+    return this.cognitiveMemory.retrieve(key, {
+      namespace: "session",
+      session_id: sessionId,
+    });
+  }
+
+  async retrieveLongTerm(key) {
+    this._assertReady();
+    return this.cognitiveMemory.retrieve(key, { namespace: "long_term" });
+  }
+
+  async semanticRecall(query, topK = 5) {
+    this._assertReady();
+    return this.cognitiveMemory.semanticSearch(query, { top_k: topK });
+  }
+
+  async sandboxHealth() {
+    this._assertReady();
+    return this.sandboxManager.healthCheck();
+  }
+
   /** Graceful shutdown */
   async shutdown() {
     this.logger?.log({ event_type: "INFO", message: "AgentRuntime shutting down..." });
     await this.hookRegistry.dispatch("on_shutdown", { settings: this.settings });
     this.semanticMemory?.shutdown?.();
     await this.mcpManager?.shutdown?.();
+    await this.cognitiveMemory?.shutdown?.();
+    await this.sandboxManager?.shutdown?.();
     this.runner?.clearActiveTimers?.();
     this._ready = false;
   }

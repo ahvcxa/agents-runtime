@@ -28,6 +28,12 @@ const DEFAULTS = {
       auto_discover: true,
       servers: [],
     },
+    cognitive_memory: {
+      provider: "in-process",
+      short_term_enabled: true,
+      long_term_enabled: true,
+      retrieval_top_k: 5,
+    },
   },
   logging: {
     output_path: ".agents/logs/agent-{date}.jsonl",

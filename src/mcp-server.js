@@ -113,6 +113,62 @@ async function createMcpServer(projectRoot) {
     }
   );
 
+  server.tool(
+    "cognitive_remember",
+    "Stores an insight into short-term session memory or long-term memory.",
+    {
+      key: z.string().describe("Memory key identifier."),
+      content: z.string().describe("Memory content text."),
+      namespace: z.enum(["session", "long_term"]).optional().default("long_term"),
+      session_id: z.string().optional().default("default"),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ key, content, namespace, session_id, stream }) => {
+      try {
+        const rt = await getRuntime();
+        if (namespace === "session") {
+          const storedKey = await rt.rememberSession(session_id, "assistant", content, { key });
+          return toToolResponse(`✅ Session memory stored\n🧠 key=${storedKey}\n📚 namespace=session\n🆔 session=${session_id}`, stream);
+        }
+
+        const storedKey = await rt.rememberLongTerm(key, { content }, { text: content });
+        return toToolResponse(`✅ Long-term memory stored\n🧠 key=${storedKey}\n📚 namespace=long_term`, stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "cognitive_recall",
+    "Retrieves relevant long-term memories using semantic search.",
+    {
+      query: z.string().describe("Semantic query text."),
+      top_k: z.number().int().min(1).max(20).optional().default(5),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ query, top_k, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const rows = await rt.semanticRecall(query, top_k);
+        if (!rows.length) {
+          return toToolResponse("ℹ️ No relevant long-term memories found.", stream);
+        }
+
+        return toToolResponse(
+          [
+            `🧠 Recalled ${rows.length} memory item(s)`,
+            "",
+            ...rows.map((row, idx) => `${idx + 1}. key=${row.key} score=${row.score?.toFixed?.(4) ?? row.score}\n   ${JSON.stringify(row.value)}`),
+          ].join("\n"),
+          stream
+        );
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
   // ── Tool 3: refactor ──────────────────────────────────────────────────────
   server.tool(
     "refactor",
