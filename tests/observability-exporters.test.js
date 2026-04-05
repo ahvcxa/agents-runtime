@@ -61,4 +61,38 @@ describe("observability exporters", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers["x-api-key"]).toBe("demo-key");
   });
+
+  test("invalid endpoint fails gracefully without throw", async () => {
+    const exp = createExporter({
+      runtime: {
+        observability: {
+          exporter: "phoenix",
+          exporters: {
+            phoenix: { endpoint: "::invalid-url::", api_key: "k" },
+          },
+        },
+      },
+    });
+    const out = await exp.exportTrace({ trace_id: "bad-url" });
+    expect(out.ok).toBe(false);
+    expect(out.skipped).toBe(true);
+  });
+
+  test("network errors are returned as structured retriable failures", async () => {
+    jest.spyOn(global, "fetch").mockRejectedValue(new Error("connection refused"));
+    const exp = createExporter({
+      runtime: {
+        observability: {
+          exporter: "helicone",
+          exporters: {
+            helicone: { endpoint: "https://example.com/helicone", api_key: "demo" },
+          },
+        },
+      },
+    });
+    const out = await exp.exportTrace({ trace_id: "net-err" });
+    expect(out.ok).toBe(false);
+    expect(out.error.code).toBe("EXPORT_NETWORK_ERROR");
+    expect(out.error.retriable).toBe(true);
+  });
 });

@@ -67,6 +67,9 @@ Agentic OS orchestration layer.
 16. MCP resilience controls
    - retry with backoff in `src/mcp/client/mcp-manager.js`
    - circuit breaker states for unstable external MCP servers
+17. Integration smoke coverage
+   - `tests/pipeline-smoke.integration.test.js`
+   - validates external MCP -> sandbox -> long-term memory pipeline with deterministic stubs
 
 ## Suggested v2.0 Target Structure
 

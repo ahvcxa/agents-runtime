@@ -15,11 +15,23 @@ class BaseExporter {
       return { ok: true, skipped: true, reason: "no endpoint configured" };
     }
 
+    let endpoint;
+    try {
+      endpoint = new URL(url);
+    } catch {
+      return {
+        ok: false,
+        skipped: true,
+        reason: `invalid endpoint url: ${url}`,
+      };
+    }
+
     const controller = new AbortController();
     const timeoutMs = Math.max(1000, Number(this.config?.timeout_ms ?? 5000));
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
     try {
-      const res = await fetch(url, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -33,6 +45,19 @@ class BaseExporter {
         ok: res.ok,
         status: res.status,
         status_text: res.statusText,
+        latency_ms: Date.now() - startedAt,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        status: null,
+        status_text: "NETWORK_ERROR",
+        error: {
+          code: err?.name === "AbortError" ? "EXPORT_TIMEOUT" : "EXPORT_NETWORK_ERROR",
+          message: err.message,
+          retriable: true,
+        },
+        latency_ms: Date.now() - startedAt,
       };
     } finally {
       clearTimeout(timer);
@@ -49,7 +74,10 @@ class NoopExporter extends BaseExporter {
 class LangSmithExporter extends BaseExporter {
   async exportTrace(traceReport) {
     const headers = {};
-    if (this.config?.api_key) headers["x-api-key"] = this.config.api_key;
+    if (this.config?.api_key) {
+      headers["x-api-key"] = this.config.api_key;
+      headers.authorization = `Bearer ${this.config.api_key}`;
+    }
     const payload = {
       run_id: traceReport?.trace_id,
       name: "agents-runtime-trace",
