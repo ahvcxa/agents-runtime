@@ -1,6 +1,7 @@
 "use strict";
 
 const { evaluateRisk, hasHighRiskCommand, enforceHitl } = require("../src/orchestration/hitl-guard");
+const { ApprovalManager } = require("../src/orchestration/approval-manager");
 
 describe("HITL guard", () => {
   test("detects high risk shell command", () => {
@@ -27,13 +28,22 @@ describe("HITL guard", () => {
   });
 
   test("allows risky action when approved", () => {
+    const approvalManager = new ApprovalManager({ runtime: { hitl: { token_ttl_seconds: 300 } } }, { log() {} });
+    const issued = approvalManager.issue({
+      agentId: "a1",
+      skillId: "s1",
+      reason: "manual review",
+      traceId: "t1",
+    });
+
     expect(() => enforceHitl({
-      input: { command: "rm -rf /tmp/demo", approval: { approved: true } },
-      settings: { runtime: { hitl: { enabled: true, require_explicit_approval: true } } },
+      input: { command: "rm -rf /tmp/demo", approval: { approved: true, token: issued.token } },
+      settings: { runtime: { hitl: { enabled: true, require_explicit_approval: true, require_approval_token: true } } },
       logger: { log() {} },
       traceId: "t1",
       agentId: "a1",
       skillId: "s1",
+      approvalManager,
     })).not.toThrow();
   });
 });

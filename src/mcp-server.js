@@ -95,13 +95,36 @@ async function createMcpServer(projectRoot) {
     async ({ tool_name, input, server_id, stream }) => {
       try {
         const rt = await getRuntime();
+        const traceId = rt.tracer?.traceId?.();
+        const started = Date.now();
         const result = await rt.callExternalMcpTool(tool_name, input, { server_id });
+        rt.trackStep({
+          trace_id: traceId,
+          agent_id: "mcp-client",
+          skill_id: "external_mcp_call",
+          phase: "action.external_mcp",
+          latency_ms: Date.now() - started,
+        });
+
         if (!result.ok) {
           return toToolResponse(`❌ ${result.error?.code ?? "MCP_ERROR"}: ${result.error?.message ?? "Unknown error"}`, stream);
         }
+
+        await rt.rememberLongTerm(`external-mcp:${tool_name}:${traceId}`, {
+          tool_name,
+          server_id: server_id ?? rt.listExternalMcpTools().find((t) => t.name === tool_name)?.server_id,
+          input,
+          output: result.structured_content ?? result.content,
+          trace_id: traceId,
+        }, {
+          text: `external mcp tool ${tool_name} invocation`,
+          metadata: { trace_id: traceId },
+        });
+
         const text = [
           `✅ External MCP tool call succeeded`,
           `🧰 tool=${tool_name}`,
+          `🧭 trace_id=${traceId}`,
           `⏱️ latency_ms=${result.latency_ms ?? "?"}`,
           "",
           result.content || JSON.stringify(result.structured_content ?? result.raw ?? {}, null, 2),
@@ -215,6 +238,58 @@ async function createMcpServer(projectRoot) {
         const rt = await getRuntime();
         const health = await rt.sandboxHealth();
         return toToolResponse(JSON.stringify(health, null, 2), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "hitl_issue_token",
+    "Issues a one-time HITL approval token for high-risk actions.",
+    {
+      agent_id: z.string().optional().default("mcp-client"),
+      skill_id: z.string().optional().default("manual"),
+      reason: z.string().describe("Human-reviewed reason for approving a risky action."),
+      trace_id: z.string().optional(),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ agent_id, skill_id, reason, trace_id, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const row = rt.approvalManager.issue({
+          agentId: agent_id,
+          skillId: skill_id,
+          reason,
+          traceId: trace_id,
+        });
+        return toToolResponse(
+          `✅ HITL token issued\n🔐 token=${row.token}\n⏳ expires_at=${row.expires_at}\n👤 agent=${row.agent_id}\n🧩 skill=${row.skill_id}`,
+          stream
+        );
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "hitl_validate_token",
+    "Validates a HITL token without consuming it.",
+    {
+      token: z.string(),
+      agent_id: z.string().optional(),
+      skill_id: z.string().optional(),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ token, agent_id, skill_id, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const out = rt.approvalManager.validate(token, {
+          agentId: agent_id,
+          skillId: skill_id,
+        });
+        return toToolResponse(JSON.stringify(out, null, 2), stream);
       } catch (err) {
         return toToolResponse(`❌ Internal error: ${err.message}`, stream);
       }

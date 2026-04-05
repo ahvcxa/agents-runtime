@@ -37,6 +37,8 @@ const DEFAULTS = {
     hitl: {
       enabled: true,
       require_explicit_approval: true,
+      require_approval_token: true,
+      token_ttl_seconds: 300,
       high_risk_patterns: [
         "rm -rf",
         "curl | sh",

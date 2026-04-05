@@ -23,6 +23,7 @@ const { createMemoryProvider } = require("./memory/providers/memory-provider-fac
 const { SandboxManager } = require("./sandbox/sandbox-manager");
 const { StepTracker } = require("./observability/step-tracker");
 const { createExporter } = require("./observability/exporters");
+const { ApprovalManager } = require("./orchestration/approval-manager");
 
 class AgentRuntime {
   /**
@@ -59,6 +60,7 @@ class AgentRuntime {
     this.sandboxManager = new SandboxManager(this.settings, this.logger);
     this.stepTracker = new StepTracker(this.logger);
     this.traceExporter = createExporter(this.settings, this.logger);
+    this.approvalManager = new ApprovalManager(this.settings, this.logger);
 
     this.logger.log({
       event_type: "INFO",
