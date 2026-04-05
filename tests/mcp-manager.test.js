@@ -101,4 +101,57 @@ describe("MCPManager", () => {
     expect(result.ok).toBe(false);
     expect(result.error.code).toBe("MCP_TOOL_NOT_FOUND");
   });
+
+  test("retries transient failures and succeeds", async () => {
+    const manager = new MCPManager({
+      runtime: {
+        mcp_client: {
+          enabled: true,
+          auto_discover: true,
+          retry: { max_attempts: 3, base_delay_ms: 0, breaker_threshold: 10, breaker_cooldown_ms: 1000 },
+          servers: [
+            { id: "github", transport: "stdio", command: "node", args: ["/tmp/fake.js"] },
+          ],
+        },
+      },
+    });
+    await manager.init();
+    const adapter = manager.clients.get("github");
+    const spy = jest.spyOn(adapter, "callTool")
+      .mockResolvedValueOnce({ ok: false, error: { retriable: true, code: "X", message: "fail1" } })
+      .mockResolvedValueOnce({ ok: false, error: { retriable: true, code: "X", message: "fail2" } })
+      .mockResolvedValueOnce({ ok: true, content: "ok", latency_ms: 1 });
+
+    const result = await manager.callTool("github_list_prs", {});
+    expect(result.ok).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(3);
+  });
+
+  test("opens circuit breaker after repeated failures", async () => {
+    const manager = new MCPManager({
+      runtime: {
+        mcp_client: {
+          enabled: true,
+          auto_discover: true,
+          retry: { max_attempts: 1, base_delay_ms: 0, breaker_threshold: 1, breaker_cooldown_ms: 60000 },
+          servers: [
+            { id: "github", transport: "stdio", command: "node", args: ["/tmp/fake.js"] },
+          ],
+        },
+      },
+    });
+    await manager.init();
+    const adapter = manager.clients.get("github");
+    jest.spyOn(adapter, "callTool").mockResolvedValue({
+      ok: false,
+      error: { retriable: true, code: "MCP_TOOL_CALL_FAILED", message: "boom" },
+    });
+
+    const first = await manager.callTool("github_list_prs", {});
+    expect(first.ok).toBe(false);
+
+    const second = await manager.callTool("github_list_prs", {});
+    expect(second.ok).toBe(false);
+    expect(second.error.code).toBe("MCP_CIRCUIT_OPEN");
+  });
 });

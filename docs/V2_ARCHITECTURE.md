@@ -63,6 +63,9 @@ Agentic OS orchestration layer.
    - `src/orchestration/pipeline-service.js`
    - MCP tool: `external_mcp_pipeline`
    - flow: external MCP -> sandbox -> long-term memory
+16. MCP resilience controls
+   - retry with backoff in `src/mcp/client/mcp-manager.js`
+   - circuit breaker states for unstable external MCP servers
 
 ## Suggested v2.0 Target Structure
 

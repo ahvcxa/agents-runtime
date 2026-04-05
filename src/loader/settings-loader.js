@@ -27,6 +27,12 @@ const DEFAULTS = {
       enabled: false,
       auto_discover: true,
       servers: [],
+      retry: {
+        max_attempts: 2,
+        base_delay_ms: 100,
+        breaker_threshold: 3,
+        breaker_cooldown_ms: 10000,
+      },
     },
     cognitive_memory: {
       provider: "in-process",
