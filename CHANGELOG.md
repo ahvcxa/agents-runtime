@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0] — 2026-04-05
+
+### Added
+
+- V2 orchestration layer with cognitive memory, sandbox abstraction, external MCP client layer, reasoning-loop middleware, and HITL approval tokens.
+- SQLite cognitive memory provider with session and long-term persistence plus semantic recall.
+- MCP retry/backoff and circuit-breaker resilience for unstable external servers.
+- End-to-end external MCP -> sandbox -> memory pipeline and observability step tracking.
+- Secure filesystem MCP tools with write-mode gating and project-root path enforcement.
+
+---
+
 ## [1.3.0] — 2026-04-04
 
 ### Added
@@ -197,6 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [1.3.0]: https://github.com/ahvcxa/agents-runtime/compare/v1.2.1...v1.3.0
+[2.0.0]: https://github.com/ahvcxa/agents-runtime/compare/v1.3.0...v2.0.0
 [1.2.1]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.2.1
 [1.1.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ahvcxa/agents-runtime/releases/tag/v1.0.0
