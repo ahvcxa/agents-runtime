@@ -12,9 +12,9 @@
     "mcp": "node bin/mcp.js",
     "inject-role": "node bin/inject-role.js",
     "postinstall": "node bin/inject-role.js",
-    "test": "jest --testPathPattern=tests/",
-    "test:watch": "jest --watch --testPathPattern=tests/",
-    "test:coverage": "jest --testPathPattern=tests/ --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=tests/",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch --testPathPattern=tests/",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern=tests/ --coverage",
     "lint": "node --check bin/agents.js && node --check src/engine.js src/agent-runner.js"
   },
   "repository": {
