@@ -7,6 +7,20 @@ const { toToolResponse } = require("./tool-helpers");
 
 const MCP_AGENT_ID = "mcp-client";
 const MCP_AUTH_LEVEL = 1;
+const MCP_WRITE_AUTH_LEVEL = 2;
+const MAX_WRITE_BYTES = 1024 * 1024; // 1MB safety limit per write
+
+const WRITE_MODES = {
+  OFF: "off",
+  SAFE: "safe",
+  FULL: "full",
+};
+
+function getWriteMode() {
+  const raw = String(process.env.MCP_WRITE_MODE || WRITE_MODES.OFF).trim().toLowerCase();
+  if (raw === WRITE_MODES.SAFE || raw === WRITE_MODES.FULL) return raw;
+  return WRITE_MODES.OFF;
+}
 
 function resolveProjectPath(projectRoot, requestedPath = ".") {
   const base = path.resolve(projectRoot);
@@ -25,6 +39,21 @@ function toRelative(projectRoot, absolutePath) {
   return rel.length === 0 ? "." : rel;
 }
 
+function ensureConfirmed(confirm, operation) {
+  if (confirm !== true) {
+    throw new Error(`${operation} requires confirm=true`);
+  }
+}
+
+function assertModeAllows(writeMode, operation) {
+  if (writeMode === WRITE_MODES.OFF) {
+    throw new Error(`Write tools are disabled (MCP_WRITE_MODE=off). Set MCP_WRITE_MODE=safe or full.`);
+  }
+  if (operation === "delete" && writeMode !== WRITE_MODES.FULL) {
+    throw new Error(`delete_project_path requires MCP_WRITE_MODE=full`);
+  }
+}
+
 async function canReadPath(runtime, absolutePath) {
   try {
     await runtime.checkFileAccess({
@@ -35,6 +64,23 @@ async function canReadPath(runtime, absolutePath) {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function assertWritePath(runtime, absolutePath) {
+  try {
+    const checks = await runtime.checkFileAccess({
+      agent_id: MCP_AGENT_ID,
+      file_path: absolutePath,
+      auth_level: MCP_WRITE_AUTH_LEVEL,
+    });
+
+    const denied = checks.find((entry) => entry?.error);
+    if (denied) {
+      throw new Error(`Access denied by pre-read hook: ${absolutePath}`);
+    }
+  } catch {
+    throw new Error(`Access denied by pre-read hook: ${absolutePath}`);
   }
 }
 
@@ -160,6 +206,225 @@ async function readProjectFile(runtime, projectRoot, options = {}) {
   };
 }
 
+async function writeProjectFile(runtime, projectRoot, options = {}) {
+  const {
+    targetPath,
+    content,
+    createIfMissing = false,
+    overwrite = true,
+    createParents = false,
+  } = options;
+
+  if (!targetPath || typeof targetPath !== "string") {
+    throw new Error("target_path is required");
+  }
+  if (typeof content !== "string") {
+    throw new Error("content must be a string");
+  }
+  if (Buffer.byteLength(content, "utf8") > MAX_WRITE_BYTES) {
+    throw new Error(`content too large (max ${MAX_WRITE_BYTES} bytes)`);
+  }
+
+  const resolvedRoot = path.resolve(projectRoot);
+  const resolvedTarget = resolveProjectPath(resolvedRoot, targetPath);
+
+  await assertWritePath(runtime, resolvedTarget);
+
+  let exists = true;
+  let stat;
+  try {
+    stat = await fs.stat(resolvedTarget);
+  } catch {
+    exists = false;
+  }
+
+  if (exists && stat?.isDirectory()) {
+    throw new Error(`Path is a directory: ${targetPath}`);
+  }
+  if (!exists && !createIfMissing) {
+    throw new Error(`File does not exist: ${targetPath}. Set create_if_missing=true to create.`);
+  }
+  if (exists && !overwrite) {
+    throw new Error(`File exists: ${targetPath}. Set overwrite=true to replace.`);
+  }
+
+  const parentDir = path.dirname(resolvedTarget);
+  if (createParents) {
+    await fs.mkdir(parentDir, { recursive: true });
+  }
+
+  await fs.writeFile(resolvedTarget, content, "utf8");
+  return {
+    path: toRelative(resolvedRoot, resolvedTarget),
+    bytes_written: Buffer.byteLength(content, "utf8"),
+    created: !exists,
+  };
+}
+
+function parseUnifiedDiff(patchText) {
+  const lines = String(patchText || "").split(/\r?\n/);
+  const files = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (!lines[i].startsWith("--- ")) {
+      i++;
+      continue;
+    }
+
+    const oldPathRaw = lines[i].slice(4).trim();
+    i++;
+    if (i >= lines.length || !lines[i].startsWith("+++ ")) {
+      throw new Error("Invalid patch: missing +++ header");
+    }
+    const newPathRaw = lines[i].slice(4).trim();
+    i++;
+
+    const hunks = [];
+    while (i < lines.length && !lines[i].startsWith("--- ")) {
+      const header = lines[i];
+      if (!header.startsWith("@@ ")) {
+        i++;
+        continue;
+      }
+      const m = header.match(/^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/);
+      if (!m) throw new Error(`Invalid hunk header: ${header}`);
+
+      const oldStart = Number(m[1]);
+      i++;
+      const hunkLines = [];
+      while (i < lines.length && !lines[i].startsWith("@@ ") && !lines[i].startsWith("--- ")) {
+        const line = lines[i];
+        if (line.length === 0) {
+          hunkLines.push(" ");
+          i++;
+          continue;
+        }
+        if (line.startsWith("\\ No newline at end of file")) {
+          i++;
+          continue;
+        }
+        const p = line[0];
+        if (p !== " " && p !== "+" && p !== "-") {
+          throw new Error(`Invalid patch line: ${line}`);
+        }
+        hunkLines.push(line);
+        i++;
+      }
+      hunks.push({ oldStart, lines: hunkLines });
+    }
+
+    files.push({ oldPathRaw, newPathRaw, hunks });
+  }
+
+  if (files.length === 0) {
+    throw new Error("Patch did not contain file headers");
+  }
+  return files;
+}
+
+function normalizePatchPath(rawPath) {
+  if (!rawPath || rawPath === "/dev/null") return null;
+  return rawPath.replace(/^a\//, "").replace(/^b\//, "");
+}
+
+async function applyProjectPatch(runtime, projectRoot, options = {}) {
+  const { patchText } = options;
+  if (!patchText || typeof patchText !== "string") {
+    throw new Error("patch_text is required");
+  }
+
+  const resolvedRoot = path.resolve(projectRoot);
+  const parsedFiles = parseUnifiedDiff(patchText);
+  const modified = [];
+
+  for (const filePatch of parsedFiles) {
+    const oldPath = normalizePatchPath(filePatch.oldPathRaw);
+    const newPath = normalizePatchPath(filePatch.newPathRaw);
+    if (!oldPath || !newPath || oldPath !== newPath) {
+      throw new Error("Only in-place file patches are supported");
+    }
+
+    const absPath = resolveProjectPath(resolvedRoot, newPath);
+    await assertWritePath(runtime, absPath);
+
+    const original = await fs.readFile(absPath, "utf8");
+    const hasTrailingNewline = original.endsWith("\n");
+    const lines = original.split(/\r?\n/);
+    if (hasTrailingNewline) lines.pop();
+
+    let delta = 0;
+    for (const hunk of filePatch.hunks) {
+      let cursor = hunk.oldStart - 1 + delta;
+      for (const line of hunk.lines) {
+        const prefix = line[0];
+        const body = line.slice(1);
+        if (prefix === " ") {
+          if (lines[cursor] !== body) {
+            throw new Error(`Patch context mismatch at ${newPath}:${cursor + 1}`);
+          }
+          cursor++;
+          continue;
+        }
+        if (prefix === "-") {
+          if (lines[cursor] !== body) {
+            throw new Error(`Patch deletion mismatch at ${newPath}:${cursor + 1}`);
+          }
+          lines.splice(cursor, 1);
+          delta -= 1;
+          continue;
+        }
+        lines.splice(cursor, 0, body);
+        cursor++;
+        delta += 1;
+      }
+    }
+
+    const updated = `${lines.join("\n")}${hasTrailingNewline ? "\n" : ""}`;
+    await fs.writeFile(absPath, updated, "utf8");
+    modified.push(toRelative(resolvedRoot, absPath));
+  }
+
+  return { modified_files: modified, file_count: modified.length };
+}
+
+async function deleteProjectPath(runtime, projectRoot, options = {}) {
+  const {
+    targetPath,
+    recursive = false,
+  } = options;
+
+  if (!targetPath || typeof targetPath !== "string") {
+    throw new Error("target_path is required");
+  }
+
+  const resolvedRoot = path.resolve(projectRoot);
+  const absolute = resolveProjectPath(resolvedRoot, targetPath);
+
+  if (absolute === resolvedRoot) {
+    throw new Error("Deleting project root is not allowed");
+  }
+
+  await assertWritePath(runtime, absolute);
+
+  const stat = await fs.stat(absolute);
+  if (stat.isDirectory() && !recursive) {
+    throw new Error(`Directory deletion requires recursive=true: ${targetPath}`);
+  }
+
+  if (stat.isDirectory()) {
+    await fs.rm(absolute, { recursive: true, force: false });
+  } else {
+    await fs.unlink(absolute);
+  }
+
+  return {
+    path: toRelative(resolvedRoot, absolute),
+    type: stat.isDirectory() ? "directory" : "file",
+    deleted: true,
+  };
+}
+
 function registerFilesystemTools(server, getRuntime, projectRoot) {
   server.tool(
     "list_project_files",
@@ -236,11 +501,122 @@ function registerFilesystemTools(server, getRuntime, projectRoot) {
       }
     }
   );
+
+  server.tool(
+    "write_project_file",
+    [
+      "Writes a text file under the configured project root.",
+      "Requires confirm=true and MCP_WRITE_MODE=safe|full.",
+      "Respects security path checks and forbidden file patterns.",
+    ].join(" "),
+    {
+      target_path: z.string().describe("Relative or absolute file path under project root."),
+      content: z.string().describe("Full text content to write."),
+      create_if_missing: z.boolean().optional().default(false),
+      overwrite: z.boolean().optional().default(true),
+      create_parents: z.boolean().optional().default(false),
+      confirm: z.boolean().optional().default(false),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ target_path, content, create_if_missing, overwrite, create_parents, confirm, stream }) => {
+      try {
+        const mode = getWriteMode();
+        assertModeAllows(mode, "write");
+        ensureConfirmed(confirm, "write_project_file");
+
+        const rt = await getRuntime();
+        const result = await writeProjectFile(rt, projectRoot, {
+          targetPath: target_path,
+          content,
+          createIfMissing: create_if_missing,
+          overwrite,
+          createParents: create_parents,
+        });
+
+        return toToolResponse(
+          `✅ File written (${mode} mode)\n📄 ${result.path}\n📦 ${result.bytes_written} bytes\n🆕 created=${result.created}`,
+          stream
+        );
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "apply_project_patch",
+    [
+      "Applies a unified diff patch to files under project root.",
+      "Requires confirm=true and MCP_WRITE_MODE=safe|full.",
+      "Supports in-place file modifications only.",
+    ].join(" "),
+    {
+      patch_text: z.string().describe("Unified diff patch text."),
+      confirm: z.boolean().optional().default(false),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ patch_text, confirm, stream }) => {
+      try {
+        const mode = getWriteMode();
+        assertModeAllows(mode, "patch");
+        ensureConfirmed(confirm, "apply_project_patch");
+
+        const rt = await getRuntime();
+        const result = await applyProjectPatch(rt, projectRoot, { patchText: patch_text });
+
+        return toToolResponse(
+          `✅ Patch applied (${mode} mode)\n📁 files=${result.file_count}\n${result.modified_files.map((f) => `- ${f}`).join("\n")}`,
+          stream
+        );
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "delete_project_path",
+    [
+      "Deletes a file or directory under project root.",
+      "Requires confirm=true and MCP_WRITE_MODE=full.",
+      "Directory deletion requires recursive=true.",
+    ].join(" "),
+    {
+      target_path: z.string().describe("Relative or absolute path under project root."),
+      recursive: z.boolean().optional().default(false),
+      confirm: z.boolean().optional().default(false),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ target_path, recursive, confirm, stream }) => {
+      try {
+        const mode = getWriteMode();
+        assertModeAllows(mode, "delete");
+        ensureConfirmed(confirm, "delete_project_path");
+
+        const rt = await getRuntime();
+        const result = await deleteProjectPath(rt, projectRoot, {
+          targetPath: target_path,
+          recursive,
+        });
+
+        return toToolResponse(
+          `✅ Path deleted (${mode} mode)\n🗑️ ${result.path}\n📦 type=${result.type}`,
+          stream
+        );
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
 }
 
 module.exports = {
   resolveProjectPath,
+  getWriteMode,
   listProjectFiles,
   readProjectFile,
+  writeProjectFile,
+  applyProjectPatch,
+  deleteProjectPath,
   registerFilesystemTools,
 };

@@ -6,8 +6,12 @@ const fs = require("fs/promises");
 const { createRuntime } = require("../src/engine");
 const {
   resolveProjectPath,
+  getWriteMode,
   listProjectFiles,
   readProjectFile,
+  writeProjectFile,
+  applyProjectPatch,
+  deleteProjectPath,
 } = require("../src/mcp/filesystem-tools");
 
 describe("mcp filesystem tools", () => {
@@ -25,6 +29,81 @@ describe("mcp filesystem tools", () => {
   afterEach(async () => {
     await fs.rm(sandboxDir, { recursive: true, force: true });
     await fs.rm(path.join(projectRoot, ".env"), { force: true });
+    await fs.rm(path.join(projectRoot, "mcp-fs-delete"), { recursive: true, force: true });
+    delete process.env.MCP_WRITE_MODE;
+  });
+
+  test("getWriteMode defaults to off", () => {
+    delete process.env.MCP_WRITE_MODE;
+    expect(getWriteMode()).toBe("off");
+  });
+
+  test("writeProjectFile writes and creates file when allowed", async () => {
+    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const result = await writeProjectFile(rt, projectRoot, {
+      targetPath: "mcp-fs-test/new-file.txt",
+      content: "hello\nworld\n",
+      createIfMissing: true,
+      overwrite: true,
+      createParents: false,
+    });
+
+    expect(result.path).toBe("mcp-fs-test/new-file.txt");
+    expect(result.created).toBe(true);
+    const content = await fs.readFile(path.join(projectRoot, "mcp-fs-test/new-file.txt"), "utf8");
+    expect(content).toBe("hello\nworld\n");
+  });
+
+  test("writeProjectFile denies forbidden targets", async () => {
+    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    await expect(writeProjectFile(rt, projectRoot, {
+      targetPath: ".env",
+      content: "SECRET=123\n",
+      createIfMissing: true,
+      overwrite: true,
+    })).rejects.toThrow("Access denied by pre-read hook");
+  });
+
+  test("applyProjectPatch updates file content from unified diff", async () => {
+    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const patch = [
+      "--- a/mcp-fs-test/a.js",
+      "+++ b/mcp-fs-test/a.js",
+      "@@ -1,2 +1,2 @@",
+      "-const a = 1;",
+      "+const a = 100;",
+      " const b = 2;",
+    ].join("\n");
+
+    const result = await applyProjectPatch(rt, projectRoot, { patchText: patch });
+    expect(result.file_count).toBe(1);
+    expect(result.modified_files).toContain("mcp-fs-test/a.js");
+
+    const content = await fs.readFile(path.join(projectRoot, "mcp-fs-test/a.js"), "utf8");
+    expect(content).toContain("const a = 100;");
+  });
+
+  test("deleteProjectPath deletes directory recursively", async () => {
+    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const deleteDir = path.join(projectRoot, "mcp-fs-delete");
+    await fs.mkdir(path.join(deleteDir, "sub"), { recursive: true });
+    await fs.writeFile(path.join(deleteDir, "sub", "x.txt"), "x\n", "utf8");
+
+    const result = await deleteProjectPath(rt, projectRoot, {
+      targetPath: "mcp-fs-delete",
+      recursive: true,
+    });
+
+    expect(result.path).toBe("mcp-fs-delete");
+    await expect(fs.stat(deleteDir)).rejects.toThrow();
+  });
+
+  test("deleteProjectPath blocks deleting project root", async () => {
+    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    await expect(deleteProjectPath(rt, projectRoot, {
+      targetPath: ".",
+      recursive: true,
+    })).rejects.toThrow("Deleting project root is not allowed");
   });
 
   test("resolveProjectPath blocks traversal outside project", () => {
