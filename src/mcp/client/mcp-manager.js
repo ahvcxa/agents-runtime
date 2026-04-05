@@ -144,6 +144,59 @@ class MCPManager {
     this.logger = logger;
     this.clients = new Map();
     this.toolIndex = new Map(); // tool_name -> server_id
+    this.serverState = new Map(); // server_id -> breaker/retry state
+  }
+
+  _retryConfig() {
+    const retry = this.settings?.runtime?.mcp_client?.retry ?? {};
+    return {
+      maxAttempts: Math.max(1, Number(retry.max_attempts ?? 2)),
+      baseDelayMs: Math.max(0, Number(retry.base_delay_ms ?? 100)),
+      breakerThreshold: Math.max(1, Number(retry.breaker_threshold ?? 3)),
+      breakerCooldownMs: Math.max(1000, Number(retry.breaker_cooldown_ms ?? 10000)),
+    };
+  }
+
+  _stateFor(serverId) {
+    if (!this.serverState.has(serverId)) {
+      this.serverState.set(serverId, {
+        failure_count: 0,
+        open_until: 0,
+        last_failure_at: null,
+      });
+    }
+    return this.serverState.get(serverId);
+  }
+
+  _recordSuccess(serverId) {
+    const state = this._stateFor(serverId);
+    state.failure_count = 0;
+    state.open_until = 0;
+    this.serverState.set(serverId, state);
+  }
+
+  _recordFailure(serverId) {
+    const state = this._stateFor(serverId);
+    const cfg = this._retryConfig();
+    state.failure_count += 1;
+    state.last_failure_at = new Date().toISOString();
+    if (state.failure_count >= cfg.breakerThreshold) {
+      state.open_until = Date.now() + cfg.breakerCooldownMs;
+      this.logger?.log?.({
+        event_type: "WARN",
+        message: `MCP circuit opened for '${serverId}' after ${state.failure_count} failures`,
+      });
+    }
+    this.serverState.set(serverId, state);
+  }
+
+  _isCircuitOpen(serverId) {
+    const state = this._stateFor(serverId);
+    return Date.now() < Number(state.open_until || 0);
+  }
+
+  async _sleep(ms) {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   _mcpConfig() {
@@ -164,13 +217,21 @@ class MCPManager {
 
     for (const serverCfg of cfg.servers) {
       if (!serverCfg?.id) continue;
-      const adapter = new MCPClientAdapter(serverCfg);
-      await adapter.init();
-      this.clients.set(serverCfg.id, adapter);
-      this.logger?.log?.({
-        event_type: "INFO",
-        message: `MCP client connected: ${serverCfg.id}`,
-      });
+      try {
+        const adapter = new MCPClientAdapter(serverCfg);
+        await adapter.init();
+        this.clients.set(serverCfg.id, adapter);
+        this._stateFor(serverCfg.id);
+        this.logger?.log?.({
+          event_type: "INFO",
+          message: `MCP client connected: ${serverCfg.id}`,
+        });
+      } catch (err) {
+        this.logger?.log?.({
+          event_type: "WARN",
+          message: `MCP client failed to initialize '${serverCfg.id}': ${err.message}`,
+        });
+      }
     }
 
     if (cfg.autoDiscover) {
@@ -228,13 +289,58 @@ class MCPManager {
       };
     }
 
-    return client.callTool(toolName, input, options);
+    if (this._isCircuitOpen(serverId)) {
+      const state = this._stateFor(serverId);
+      return {
+        ok: false,
+        error: {
+          code: "MCP_CIRCUIT_OPEN",
+          message: `MCP server '${serverId}' is temporarily blocked due to repeated failures`,
+          retriable: true,
+        },
+        circuit_open_until: state.open_until,
+      };
+    }
+
+    const cfg = this._retryConfig();
+    let lastResult = null;
+
+    for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
+      const result = await client.callTool(toolName, input, options);
+      lastResult = result;
+
+      if (result?.ok) {
+        this._recordSuccess(serverId);
+        return result;
+      }
+
+      this._recordFailure(serverId);
+      const retriable = result?.error?.retriable !== false;
+      if (!retriable || attempt >= cfg.maxAttempts) {
+        break;
+      }
+      const delay = cfg.baseDelayMs * attempt;
+      await this._sleep(delay);
+    }
+
+    return lastResult || {
+      ok: false,
+      error: {
+        code: "MCP_TOOL_CALL_FAILED",
+        message: "Unknown MCP call failure",
+        retriable: true,
+      },
+    };
   }
 
   async healthCheck() {
     const out = [];
     for (const [id, client] of this.clients.entries()) {
-      out.push({ server_id: id, ...(await client.healthCheck()) });
+      out.push({
+        server_id: id,
+        ...(await client.healthCheck()),
+        breaker: this._stateFor(id),
+      });
     }
     return out;
   }
