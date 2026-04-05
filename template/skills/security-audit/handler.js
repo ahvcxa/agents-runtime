@@ -59,12 +59,15 @@ function finding({ owasp_category, cwe_id, severity, file, line_start, line_end,
 
 // ─── File resolution ──────────────────────────────────────────────────────────
 const SUPPORTED_EXTS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".env", ".py"]);
+const SELF_PATH = path.resolve(__filename);
 
 function resolveFiles(inputs, root) {
   const result = [];
   for (const input of inputs) {
     const abs = path.isAbsolute(input) ? input : path.join(root, input);
     if (!fs.existsSync(abs)) continue;
+    // SORUN 3 DÜZELT: Handler'ın kendi dosyasını exclude et
+    if (path.resolve(abs) === SELF_PATH) continue;
     const stat = fs.statSync(abs);
     if (stat.isDirectory()) collectFiles(abs, result);
     else if (SUPPORTED_EXTS.has(path.extname(abs).toLowerCase())) result.push(abs);
@@ -76,6 +79,8 @@ function collectFiles(dir, out) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist") continue;
     const full = path.join(dir, entry.name);
+    // SORUN 3 DÜZELT: Handler'ın kendi dosyasını exclude et
+    if (path.resolve(full) === SELF_PATH) continue;
     if (entry.isDirectory()) collectFiles(full, out);
     else if (SUPPORTED_EXTS.has(path.extname(entry.name).toLowerCase())) out.push(full);
   }
@@ -108,19 +113,24 @@ const LINE_RULES = [
     message: "Base64-encoded secret decoded in code — likely hardcoded credential",
     recommendation: "Store secrets in environment variables or a secrets manager, never in source code." },
 
-  // A03: Injection
-  { pattern: /\$\{.*(?:req\.|params\.|query\.|body\.).*\}/,
-    owasp: "A03:2021", cwe: "CWE-89",   severity: "CRITICAL",
-    message: "Template literal contains user input — potential injection sink",
-    recommendation: "Never interpolate user-controlled data into SQL/shell/template contexts without sanitization." },
-  { pattern: /new RegExp\s*\([^)]*(?:req\.|params\.|query\.|body\.)/,
-    owasp: "A03:2021", cwe: "CWE-730",  severity: "HIGH",
-    message: "User-controlled input used in RegExp constructor — ReDoS risk",
-    recommendation: "Validate and limit user input before using in RegExp. Consider using a safe regex library." },
-  { pattern: /child_process|require\s*\(\s*['"]child_process['"]\s*\)/,
-    owasp: "A03:2021", cwe: "CWE-78",   severity: "HIGH",
-    message: "child_process module imported — ensure no user input reaches shell commands",
-    recommendation: "Audit every exec/spawn call. Use execFile() with argument arrays." },
+   // A03: Injection
+   { pattern: /\$\{.*(?:req\.|params\.|query\.|body\.).*\}/,
+     owasp: "A03:2021", cwe: "CWE-89",   severity: "CRITICAL",
+     message: "Template literal contains user input — potential injection sink",
+     recommendation: "Never interpolate user-controlled data into SQL/shell/template contexts without sanitization." },
+   { pattern: /new RegExp\s*\([^)]*(?:req\.|params\.|query\.|body\.)/,
+     owasp: "A03:2021", cwe: "CWE-730",  severity: "HIGH",
+     message: "User-controlled input used in RegExp constructor — ReDoS risk",
+     recommendation: "Validate and limit user input before using in RegExp. Consider using a safe regex library." },
+   // SORUN 1 DÜZELT: exec/spawn çağrısını HIGH severity'ye bırak, sadece import'u INFO'ya indir
+   { pattern: /\b(?:exec|spawn)\s*\([^)]*(?:process\.env|path\.join|template|interpolate|\+|`)/,
+     owasp: "A03:2021", cwe: "CWE-78",   severity: "HIGH",
+     message: "exec() or spawn() called with dynamic arguments — command injection risk",
+     recommendation: "Use execFile() with shell: false and argument arrays. Never concatenate user input into commands." },
+   { pattern: /require\s*\(\s*['"]child_process['"]\s*\)/,
+     owasp: "A03:2021", cwe: "CWE-78",   severity: "INFO",
+     message: "child_process module imported — verify execFile() is used, not exec/spawn",
+     recommendation: "Audit every process execution. Use execFile() with argument arrays and shell: false." },
 
   // A04: Insecure Design
   { pattern: /app\.use\s*\([^)]*cors\s*\(\s*\{[^}]*origin\s*:\s*['"]\*['"]/,
@@ -267,41 +277,66 @@ async function execute({ agentId, authLevel, input, memory, log }) {
       const py = getPyAnalyzer();
       if (py) fileFindings.push(...py.auditSecurityPython(lines, relPath));
     } else {
-      // Line-level checks (JS/TS/config files)
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim().startsWith("//") || line.trim().startsWith("*")) continue;
-        for (const rule of LINE_RULES) {
-          if (rule.pattern.test(line)) {
-            fileFindings.push(finding({
-              owasp_category: rule.owasp,
-              cwe_id:         rule.cwe,
-              severity:       rule.severity,
-              file:           relPath,
-              line_start:     i + 1,
-              line_end:       i + 1,
-              message:        rule.message,
-              recommendation: rule.recommendation,
-            }));
-          }
-        }
-      }
-    }
+       // SORUN 3 DÜZELT: Line-level checks (JS/TS/config files)
+       // Rule tanımlarını ve string literal'leri skip et
+       for (let i = 0; i < lines.length; i++) {
+         const line = lines[i];
+         
+         // Skip comments
+         if (line.trim().startsWith("//") || line.trim().startsWith("*")) continue;
+         
+         // Skip rule definitions (pattern:, owasp:, severity: gibi satırlar)
+         if (line.trim().match(/^\{?\s*pattern:|severity:|owasp:|cwe:|message:|recommendation:/)) continue;
+         
+         // Skip regex literals (satırda /.../ ve , birlikte varsa)
+         if (line.includes("/") && line.includes(",") && line.match(/\/[^\/]+\/[\s,]/)) continue;
+         
+         for (const rule of LINE_RULES) {
+           if (rule.pattern.test(line)) {
+             fileFindings.push(finding({
+               owasp_category: rule.owasp,
+               cwe_id:         rule.cwe,
+               severity:       rule.severity,
+               file:           relPath,
+               line_start:     i + 1,
+               line_end:       i + 1,
+               message:        rule.message,
+               recommendation: rule.recommendation,
+             }));
+           }
+         }
+       }
+     }
 
 
-    // Suppression filter
-    const suppressions = new Set();
-    for (const line of lines) {
-      const m = line.match(/agent-suppress:\s*(\S+)/);
-      if (m) suppressions.add(m[1]);
-    }
-    const filtered = fileFindings.filter((f) => {
-      if (suppressions.has(f.suppression_key)) {
-        log({ event_type: "INFO", message: `Suppressed: ${f.suppression_key}` });
-        return false;
-      }
-      return true;
-    });
+     // SORUN 2 DÜZELT: Suppression mekanizmasını iyileştir
+     // Hem OWASP kategori bazlı (örn: A04:2021) hem de suppression_key bazlı suppress'i destekle
+     const suppressedCategories = new Map(); // category:line -> line numarası
+     const suppressedKeys = new Set();
+     
+     // İlk pass: tüm suppression comment'leri bul
+     for (let i = 0; i < lines.length; i++) {
+       const m = lines[i].match(/agent-suppress:\s*(\S+)/);
+       if (!m) continue;
+       const token = m[1].replace(/reason=.*/, "").trim();
+       // OWASP kategori formatı: A01:2021, A02:2021, vb.
+       if (token.match(/^A\d{2}:\d{4}$/)) {
+         // Suppression bu satırda veya sonraki satırda geçerli
+         suppressedCategories.set(`${token}:${i + 1}`, true);  // comment satırı
+         suppressedCategories.set(`${token}:${i + 2}`, true);  // sonraki satır
+       } else {
+         suppressedKeys.add(token);
+       }
+     }
+     
+     const filtered = fileFindings.filter((f) => {
+       const lineKey = `${f.owasp_category}:${f.line_start}`;
+       const isSuppressed = suppressedKeys.has(f.suppression_key) || suppressedCategories.has(lineKey);
+       if (isSuppressed) {
+         log({ event_type: "INFO", message: `Suppressed [${f.owasp_category}:${f.line_start}]: ${f.cwe_id}` });
+       }
+       return !isSuppressed;
+     });
 
     allFindings.push(...filtered);
     summary.files_scanned++;
