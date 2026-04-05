@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "agents-runtime": {
+      "command": "/usr/bin/node",
+      "args": [
+        "/home/ahvcxa/Desktop/Folders/agents-runtime/bin/mcp.js",
+        "--project",
+        "/home/ahvcxa/Desktop/Folders/GitHub/SecureChat-Local/"
+      ],
+      "env": {
+        "MCP_WRITE_MODE": "full"
+      }
+    }
+  }
+}
