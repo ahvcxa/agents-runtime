@@ -25,6 +25,7 @@ const { StepTracker } = require("./observability/step-tracker");
 const { createExporter } = require("./observability/exporters");
 const { ApprovalManager } = require("./orchestration/approval-manager");
 const { PipelineService } = require("./orchestration/pipeline-service");
+const { runSecurityValidation } = require("./security/security-validator");
 
 class AgentRuntime {
   /**
@@ -47,6 +48,13 @@ class AgentRuntime {
     // 1. Load config
     this.manifest = loadManifest(this.projectRoot);
     this.settings = loadSettings(this.projectRoot);
+
+    // 2. Validate security constraints (addresses 16 security findings)
+    const packageJsonPath = path.join(this.projectRoot, "package.json");
+    const packageJson = fs.existsSync(packageJsonPath)
+      ? JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
+      : {};
+    runSecurityValidation(packageJson, this.settings);
 
     // Override verbosity if provided
     if (this._verbosity) this.settings.logging.verbosity_mode = this._verbosity;

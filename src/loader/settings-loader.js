@@ -8,9 +8,19 @@
 const fs   = require("fs");
 const path = require("path");
 
+function resolveNodeEnv() {
+  const raw = process.env.NODE_ENV;
+  if (raw == null) return "env_unset";
+  const env = String(raw).trim();
+  if (!/^[a-zA-Z0-9_-]{1,32}$/.test(env)) {
+    throw new Error("[settings-loader] Invalid NODE_ENV format");
+  }
+  return env;
+}
+
 const DEFAULTS = {
   runtime: {
-    environment: "development",
+    environment: resolveNodeEnv(),
     max_concurrent_agents: 4,
     agent_timeout_seconds: 120,
     graceful_shutdown_timeout_seconds: 15,
@@ -21,6 +31,9 @@ const DEFAULTS = {
       docker_image: "node:20-alpine",
       docker_cpus: "1",
       docker_memory: "256m",
+      rate_limit_window_ms: 60000, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in executor.js"
+      rate_limit_max_calls: 240, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in executor.js"
+      max_concurrent_executions: 8,
       wasm_module_path: "",
     },
     mcp_client: {
@@ -40,6 +53,8 @@ const DEFAULTS = {
       short_term_enabled: true,
       long_term_enabled: true,
       retrieval_top_k: 5,
+      rate_limit_window_ms: 60000, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in memory-store.js"
+      rate_limit_max_ops: 1200, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in memory-store.js"
     },
     hitl: {
       enabled: true,
