@@ -58,14 +58,16 @@ Claude will automatically call the `code_analysis` tool and return findings.
 
 1. **code_analysis** — Static analysis for JS/TS/Python
 2. **security_audit** — OWASP Top 10 audit
-3. **refactor** — Generate fix patches
-4. **compliance_check** — Validate agent configs
-5. **delegate_task** — Task delegation
-6. **send_agent_message** — Agent messaging
-7. **task_status** — Status tracking
-8. **ack_task** — Task acknowledgement
-9. **retry_task** — Retry failed tasks
-10. **semantic_events** — Semantic search
+3. **list_project_files** — Securely list files/directories under project root
+4. **read_project_file** — Securely read files with offset/limit pagination
+5. **refactor** — Generate fix patches
+6. **compliance_check** — Validate agent configs
+7. **delegate_task** — Task delegation
+8. **send_agent_message** — Agent messaging
+9. **task_status** — Status tracking
+10. **ack_task** — Task acknowledgement
+11. **retry_task** — Retry failed tasks
+12. **semantic_events** — Semantic search
 
 ## Verification
 
@@ -111,7 +113,7 @@ cat ~/.claude/claude_desktop_config.json | jq .
 
 1. Claude Desktop reads `claude_desktop_config.json`
 2. Launches MCP server via `node bin/mcp.js` on demand
-3. Server exposes 10 tools via MCP protocol
+3. Server exposes 12 tools via MCP protocol
 4. Claude discovers and uses tools automatically
 5. Tools call agents-runtime skills (code-analysis, security-audit, etc.)
 6. Results returned to Claude for human-readable output
@@ -123,7 +125,7 @@ Run test suite:
 npm test
 ```
 
-All 39 tests should pass, including MCP integration.
+All tests should pass, including MCP and filesystem tool tests.
 
 ## More Information
 
