@@ -84,4 +84,22 @@ describe("AgentRuntime", () => {
     const tools = runtime.listExternalMcpTools();
     expect(Array.isArray(tools)).toBe(true);
   });
+
+  test("remember and retrieve long-term cognitive memory", async () => {
+    const key = await runtime.rememberLongTerm("insight:test", { text: "sandbox hardening" }, { text: "sandbox hardening" });
+    expect(key).toBe("insight:test");
+    const row = await runtime.retrieveLongTerm("insight:test");
+    expect(row.value).toEqual({ text: "sandbox hardening" });
+  });
+
+  test("semanticRecall returns array", async () => {
+    await runtime.rememberLongTerm("insight:oauth", { text: "oauth rotation" }, { text: "oauth token rotation" });
+    const hits = await runtime.semanticRecall("oauth", 3);
+    expect(Array.isArray(hits)).toBe(true);
+  });
+
+  test("sandboxHealth returns structured status", async () => {
+    const health = await runtime.sandboxHealth();
+    expect(["healthy", "degraded", "offline"]).toContain(health.status);
+  });
 });

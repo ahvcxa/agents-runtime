@@ -55,7 +55,8 @@ class HandlerExecutor extends BaseExecutor {
     }
 
     try {
-      const result = await executeInSandbox({
+      const runner = this.runtime?.sandboxManager?.execute?.bind(this.runtime.sandboxManager) ?? executeInSandbox;
+      const result = await runner({
         strategy:        this.settings?.runtime?.sandbox?.strategy ?? "process",
         timeoutMs:       (this.settings?.runtime?.agent_timeout_seconds ?? 120) * 1000,
         logger:          this.logger,

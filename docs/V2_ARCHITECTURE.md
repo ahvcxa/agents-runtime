@@ -25,6 +25,19 @@ Agentic OS orchestration layer.
 4. MCP bridge tools
    - `external_mcp_tools`
    - `external_mcp_call`
+5. Memory and sandbox contracts
+   - `src/core/contracts/memory-provider.contract.js`
+   - `src/core/contracts/sandbox.contract.js`
+6. Cognitive memory provider (in-process)
+   - `src/memory/providers/in-process-memory-provider.js`
+   - `src/memory/providers/memory-provider-factory.js`
+   - runtime APIs: `rememberSession`, `rememberLongTerm`, `retrieveSession`, `retrieveLongTerm`, `semanticRecall`
+7. Sandbox manager abstraction
+   - `src/sandbox/sandbox-manager.js`
+   - runtime API: `sandboxHealth`
+8. Cognitive MCP bridge tools
+   - `cognitive_remember`
+   - `cognitive_recall`
 
 ## Suggested v2.0 Target Structure
 

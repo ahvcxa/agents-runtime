@@ -433,7 +433,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **17 tools**:
+Restart Claude Desktop — you'll see **19 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -446,6 +446,8 @@ Restart Claude Desktop — you'll see **17 tools**:
 | `delete_project_path` | Delete file/folder (requires `confirm=true`, full mode) |
 | `external_mcp_tools` | List tools discovered from configured external MCP servers |
 | `external_mcp_call` | Call a discovered external MCP tool through MCPManager |
+| `cognitive_remember` | Store short-term or long-term memory entries |
+| `cognitive_recall` | Semantic recall over long-term memory |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
 | `delegate_task` | Delegate tasks between agents |
