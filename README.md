@@ -433,7 +433,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **12 tools**:
+Restart Claude Desktop — you'll see **15 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -441,6 +441,9 @@ Restart Claude Desktop — you'll see **12 tools**:
 | `security_audit` | OWASP Top 10 deep security audit |
 | `list_project_files` | Securely list files/directories under project root |
 | `read_project_file` | Securely read project files with line pagination |
+| `write_project_file` | Write file content (requires `confirm=true`, write mode) |
+| `apply_project_patch` | Apply unified diff patch (requires `confirm=true`, write mode) |
+| `delete_project_path` | Delete file/folder (requires `confirm=true`, full mode) |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
 | `delegate_task` | Delegate tasks between agents |
@@ -451,6 +454,34 @@ Restart Claude Desktop — you'll see **12 tools**:
 | `semantic_events` | Query semantic event memory |
 
 **Setup Details:** See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete configuration and troubleshooting.
+
+### Optional write modes (safe/full)
+
+By default, write mutations are disabled (`MCP_WRITE_MODE=off`).
+
+- `off`  → write tools reject all mutations
+- `safe` → enable `write_project_file` + `apply_project_patch`
+- `full` → enable all write tools including `delete_project_path`
+
+Example Claude Desktop MCP config with write mode:
+
+```json
+{
+  "mcpServers": {
+    "agents-runtime": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/agents-runtime/bin/mcp.js",
+        "--project",
+        "/absolute/path/to/your/project"
+      ],
+      "env": {
+        "MCP_WRITE_MODE": "safe"
+      }
+    }
+  }
+}
+```
 
 ### Example Claude conversation
 

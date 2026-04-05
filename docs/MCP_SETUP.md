@@ -60,14 +60,47 @@ Claude will automatically call the `code_analysis` tool and return findings.
 2. **security_audit** — OWASP Top 10 audit
 3. **list_project_files** — Securely list files/directories under project root
 4. **read_project_file** — Securely read files with offset/limit pagination
-5. **refactor** — Generate fix patches
-6. **compliance_check** — Validate agent configs
-7. **delegate_task** — Task delegation
-8. **send_agent_message** — Agent messaging
-9. **task_status** — Status tracking
-10. **ack_task** — Task acknowledgement
-11. **retry_task** — Retry failed tasks
-12. **semantic_events** — Semantic search
+5. **write_project_file** — Write file content (requires `confirm=true` and write mode)
+6. **apply_project_patch** — Apply unified diffs (requires `confirm=true` and write mode)
+7. **delete_project_path** — Delete file/folder (requires `confirm=true`, `MCP_WRITE_MODE=full`)
+8. **refactor** — Generate fix patches
+9. **compliance_check** — Validate agent configs
+10. **delegate_task** — Task delegation
+11. **send_agent_message** — Agent messaging
+12. **task_status** — Status tracking
+13. **ack_task** — Task acknowledgement
+14. **retry_task** — Retry failed tasks
+15. **semantic_events** — Semantic search
+
+## Optional Write Modes
+
+Write tools are governed by `MCP_WRITE_MODE`:
+
+- `off` (default): write operations are blocked
+- `safe`: enables `write_project_file` and `apply_project_patch`
+- `full`: enables all write tools including `delete_project_path`
+
+Add to Claude Desktop MCP config:
+
+```json
+{
+  "mcpServers": {
+    "agents-runtime": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/agents-runtime/bin/mcp.js",
+        "--project",
+        "/absolute/path/to/your/project"
+      ],
+      "env": {
+        "MCP_WRITE_MODE": "safe"
+      }
+    }
+  }
+}
+```
+
+All write actions require `confirm=true` and stay constrained to project root.
 
 ## Verification
 
@@ -113,7 +146,7 @@ cat ~/.claude/claude_desktop_config.json | jq .
 
 1. Claude Desktop reads `claude_desktop_config.json`
 2. Launches MCP server via `node bin/mcp.js` on demand
-3. Server exposes 12 tools via MCP protocol
+3. Server exposes 15 tools via MCP protocol
 4. Claude discovers and uses tools automatically
 5. Tools call agents-runtime skills (code-analysis, security-audit, etc.)
 6. Results returned to Claude for human-readable output
