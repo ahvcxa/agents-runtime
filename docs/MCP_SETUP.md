@@ -106,6 +106,21 @@ enabling `runtime.mcp_client` in your project's `.agents/settings.json`:
 }
 ```
 
+### Optional Cognitive Memory SQLite Backend
+
+In `.agents/settings.json`:
+
+```json
+{
+  "runtime": {
+    "cognitive_memory": {
+      "provider": "sqlite",
+      "sqlite_path": ".agents/.cognitive-memory.sqlite"
+    }
+  }
+}
+```
+
 ## Optional Write Modes
 
 Write tools are governed by `MCP_WRITE_MODE`:

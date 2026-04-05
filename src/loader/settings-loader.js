@@ -36,6 +36,7 @@ const DEFAULTS = {
     },
     cognitive_memory: {
       provider: "in-process",
+      sqlite_path: ".agents/.cognitive-memory.sqlite",
       short_term_enabled: true,
       long_term_enabled: true,
       retrieval_top_k: 5,

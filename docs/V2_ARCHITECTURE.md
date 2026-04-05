@@ -30,6 +30,7 @@ Agentic OS orchestration layer.
    - `src/core/contracts/sandbox.contract.js`
 6. Cognitive memory provider (in-process)
    - `src/memory/providers/in-process-memory-provider.js`
+   - `src/memory/providers/sqlite-memory-provider.js` (real SQLite backend)
    - `src/memory/providers/memory-provider-factory.js`
    - runtime APIs: `rememberSession`, `rememberLongTerm`, `retrieveSession`, `retrieveLongTerm`, `semanticRecall`
 7. Sandbox manager abstraction
