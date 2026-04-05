@@ -457,7 +457,7 @@ Restart Claude Desktop — you'll see **19 tools**:
 | `retry_task` | Retry failed task execution |
 | `semantic_events` | Query semantic event memory |
 
-**Setup Details:** See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete configuration and troubleshooting.
+**Setup Details:** See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete configuration and troubleshooting. For v2 roadmap and module layout, see [docs/V2_ARCHITECTURE.md](docs/V2_ARCHITECTURE.md).
 
 ### Optional write modes (safe/full)
 

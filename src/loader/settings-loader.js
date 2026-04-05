@@ -34,6 +34,20 @@ const DEFAULTS = {
       long_term_enabled: true,
       retrieval_top_k: 5,
     },
+    hitl: {
+      enabled: true,
+      require_explicit_approval: true,
+      high_risk_patterns: [
+        "rm -rf",
+        "curl | sh",
+        "wget | bash",
+      ],
+    },
+    observability: {
+      enabled: true,
+      exporter: "noop",
+      cost_tracking: true,
+    },
   },
   logging: {
     output_path: ".agents/logs/agent-{date}.jsonl",

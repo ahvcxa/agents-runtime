@@ -102,4 +102,18 @@ describe("AgentRuntime", () => {
     const health = await runtime.sandboxHealth();
     expect(["healthy", "degraded", "offline"]).toContain(health.status);
   });
+
+  test("trackStep and traceReport work", () => {
+    runtime.trackStep({
+      trace_id: "trace-demo",
+      agent_id: "observer-01",
+      skill_id: "code-analysis",
+      phase: "pre_process",
+      latency_ms: 7,
+      token_usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    const report = runtime.traceReport("trace-demo");
+    expect(report.trace_id).toBe("trace-demo");
+    expect(report.step_count).toBeGreaterThan(0);
+  });
 });
