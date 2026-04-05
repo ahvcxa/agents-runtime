@@ -23,6 +23,11 @@ const DEFAULTS = {
       docker_memory: "256m",
       wasm_module_path: "",
     },
+    mcp_client: {
+      enabled: false,
+      auto_discover: true,
+      servers: [],
+    },
   },
   logging: {
     output_path: ".agents/logs/agent-{date}.jsonl",

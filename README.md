@@ -433,7 +433,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **15 tools**:
+Restart Claude Desktop — you'll see **17 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -444,6 +444,8 @@ Restart Claude Desktop — you'll see **15 tools**:
 | `write_project_file` | Write file content (requires `confirm=true`, write mode) |
 | `apply_project_patch` | Apply unified diff patch (requires `confirm=true`, write mode) |
 | `delete_project_path` | Delete file/folder (requires `confirm=true`, full mode) |
+| `external_mcp_tools` | List tools discovered from configured external MCP servers |
+| `external_mcp_call` | Call a discovered external MCP tool through MCPManager |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
 | `delegate_task` | Delegate tasks between agents |

@@ -57,6 +57,62 @@ async function createMcpServer(projectRoot) {
   registerSecurityAuditTool(server, getRuntime, projectRoot);
   registerFilesystemTools(server, getRuntime, projectRoot);
 
+  // ── v2.0 MCP Client Bridge Tools ─────────────────────────────────────────
+  server.tool(
+    "external_mcp_tools",
+    "Lists tools discovered from configured external MCP servers (runtime.mcp_client).",
+    {
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ stream }) => {
+      try {
+        const rt = await getRuntime();
+        const tools = rt.listExternalMcpTools();
+        if (!tools.length) {
+          return toToolResponse("ℹ️ No external MCP tools discovered. Enable runtime.mcp_client and configure servers in .agents/settings.json.", stream);
+        }
+        const lines = [
+          `🔌 External MCP tools: ${tools.length}`,
+          "",
+          ...tools.map((t) => `- ${t.name} (server=${t.server_id})`),
+        ];
+        return toToolResponse(lines.join("\n"), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "external_mcp_call",
+    "Calls a tool exposed by an external MCP server configured under runtime.mcp_client.",
+    {
+      tool_name: z.string().describe("Discovered external MCP tool name."),
+      input: z.object({}).passthrough().optional().default({}),
+      server_id: z.string().optional().describe("Optional explicit server id override."),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ tool_name, input, server_id, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const result = await rt.callExternalMcpTool(tool_name, input, { server_id });
+        if (!result.ok) {
+          return toToolResponse(`❌ ${result.error?.code ?? "MCP_ERROR"}: ${result.error?.message ?? "Unknown error"}`, stream);
+        }
+        const text = [
+          `✅ External MCP tool call succeeded`,
+          `🧰 tool=${tool_name}`,
+          `⏱️ latency_ms=${result.latency_ms ?? "?"}`,
+          "",
+          result.content || JSON.stringify(result.structured_content ?? result.raw ?? {}, null, 2),
+        ].join("\n");
+        return toToolResponse(text, stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
   // ── Tool 3: refactor ──────────────────────────────────────────────────────
   server.tool(
     "refactor",

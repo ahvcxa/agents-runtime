@@ -18,6 +18,7 @@ const { SkillRegistry }  = require("./registry/skill-registry");
 const { AgentRunner }    = require("./agent-runner");
 const { createTracer }   = require("./telemetry/tracer");
 const { createMemoryStore } = require("./memory/memory-store");
+const { MCPManager } = require("./mcp/client/mcp-manager");
 
 class AgentRuntime {
   /**
@@ -49,6 +50,7 @@ class AgentRuntime {
     this.semanticMemory = createMemoryStore(this.settings, 3, "runtime-system", this.projectRoot);
     this.eventBus = new EventBus(this.logger, { semanticMemory: this.semanticMemory });
     this.tracer = createTracer("agents-runtime");
+    this.mcpManager = new MCPManager(this.settings, this.logger);
 
     this.logger.log({
       event_type: "INFO",
@@ -62,6 +64,9 @@ class AgentRuntime {
 
     // 4. Boot runner
     this.runner = new AgentRunner(this);
+
+    // 5. Optional MCP client layer (v2.0)
+    await this.mcpManager.init();
 
     this._ready = true;
     this.logger.log({ event_type: "INFO", message: "AgentRuntime ready." });
@@ -134,11 +139,27 @@ class AgentRuntime {
     return this.eventBus.semanticHistory(query, topK);
   }
 
+  listExternalMcpTools() {
+    this._assertReady();
+    return this.mcpManager.listDiscoveredTools();
+  }
+
+  async callExternalMcpTool(toolName, input = {}, options = {}) {
+    this._assertReady();
+    return this.mcpManager.callTool(toolName, input, options);
+  }
+
+  async mcpHealth() {
+    this._assertReady();
+    return this.mcpManager.healthCheck();
+  }
+
   /** Graceful shutdown */
   async shutdown() {
     this.logger?.log({ event_type: "INFO", message: "AgentRuntime shutting down..." });
     await this.hookRegistry.dispatch("on_shutdown", { settings: this.settings });
     this.semanticMemory?.shutdown?.();
+    await this.mcpManager?.shutdown?.();
     this.runner?.clearActiveTimers?.();
     this._ready = false;
   }
