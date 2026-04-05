@@ -79,4 +79,9 @@ describe("AgentRuntime", () => {
     const rows = runtime.semanticEventHistory("TaskDelegated", 3);
     expect(Array.isArray(rows)).toBe(true);
   });
+
+  test("listExternalMcpTools returns array", () => {
+    const tools = runtime.listExternalMcpTools();
+    expect(Array.isArray(tools)).toBe(true);
+  });
 });

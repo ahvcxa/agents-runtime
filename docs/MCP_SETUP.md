@@ -63,14 +63,40 @@ Claude will automatically call the `code_analysis` tool and return findings.
 5. **write_project_file** — Write file content (requires `confirm=true` and write mode)
 6. **apply_project_patch** — Apply unified diffs (requires `confirm=true` and write mode)
 7. **delete_project_path** — Delete file/folder (requires `confirm=true`, `MCP_WRITE_MODE=full`)
-8. **refactor** — Generate fix patches
-9. **compliance_check** — Validate agent configs
-10. **delegate_task** — Task delegation
-11. **send_agent_message** — Agent messaging
-12. **task_status** — Status tracking
-13. **ack_task** — Task acknowledgement
-14. **retry_task** — Retry failed tasks
-15. **semantic_events** — Semantic search
+8. **external_mcp_tools** — List tools discovered from external MCP servers
+9. **external_mcp_call** — Call external MCP tools through MCPManager
+10. **refactor** — Generate fix patches
+11. **compliance_check** — Validate agent configs
+12. **delegate_task** — Task delegation
+13. **send_agent_message** — Agent messaging
+14. **task_status** — Status tracking
+15. **ack_task** — Task acknowledgement
+16. **retry_task** — Retry failed tasks
+17. **semantic_events** — Semantic search
+
+## Optional External MCP Client Layer
+
+You can connect this server to other MCP servers (GitHub, Slack, SQL, etc.) by
+enabling `runtime.mcp_client` in your project's `.agents/settings.json`:
+
+```json
+{
+  "runtime": {
+    "mcp_client": {
+      "enabled": true,
+      "auto_discover": true,
+      "servers": [
+        {
+          "id": "github",
+          "transport": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-github"]
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Optional Write Modes
 
@@ -163,7 +189,7 @@ cat ~/.claude/claude_desktop_config.json | jq .
 
 1. Claude Desktop reads `claude_desktop_config.json`
 2. Launches MCP server via `node bin/mcp.js` on demand
-3. Server exposes 15 tools via MCP protocol
+3. Server exposes 17 tools via MCP protocol
 4. Claude discovers and uses tools automatically
 5. Tools call agents-runtime skills (code-analysis, security-audit, etc.)
 6. Results returned to Claude for human-readable output
