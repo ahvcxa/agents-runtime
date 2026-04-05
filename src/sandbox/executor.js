@@ -3,8 +3,37 @@
 const path = require("path");
 const { execFile } = require("child_process");
 const { promisify } = require("util");
+const { SlidingWindowRateLimiter, ConcurrencyLimiter } = require("../security/operation-limiter");
 
 const execFileAsync = promisify(execFile);
+
+const SANDBOX_RATE_LIMITER = new SlidingWindowRateLimiter({
+  windowMs: 60000,
+  max: 240,
+});
+const SANDBOX_CONCURRENCY_LIMITER = new ConcurrencyLimiter({
+  maxConcurrent: 8,
+});
+
+function assertAllowedArg(value, name) {
+  const v = String(value ?? "");
+  if (!/^[a-zA-Z0-9._/:-]+$/.test(v)) {
+    throw new Error(`[sandbox] Invalid ${name} argument`);
+  }
+  return v;
+}
+
+function assertSandboxRateLimits() {
+  const rate = SANDBOX_RATE_LIMITER.consume("sandbox:execute");
+  if (!rate.ok) {
+    throw new Error(`[sandbox] Rate limit exceeded. Retry after ${rate.retry_after_ms}ms`);
+  }
+  const slot = SANDBOX_CONCURRENCY_LIMITER.enter();
+  if (!slot.ok) {
+    throw new Error(`[sandbox] Concurrency limit exceeded (${slot.active}/${slot.max})`);
+  }
+  return () => SANDBOX_CONCURRENCY_LIMITER.leave();
+}
 
 // ─── Security: Docker binary whitelist ────────────────────────────────────────
 /**
@@ -58,6 +87,8 @@ async function executeInSandbox({
   handlerPath,
   context,
 }) {
+  const releaseConcurrency = assertSandboxRateLimits();
+  try {
   const mode = (strategy ?? "process").toLowerCase();
   const effectiveTimeout = timeoutMs ?? 120000;
 
@@ -81,13 +112,13 @@ async function executeInSandbox({
     const dockerCmd = [
       "run", "--rm",
       "--network", "none",
-      "--cpus", String(sandboxCfg.docker_cpus ?? "1"),
-      "--memory", String(sandboxCfg.docker_memory ?? "256m"),
-      "-v", `${projectRoot}:/workspace:ro`,
+      "--cpus", assertAllowedArg(String(sandboxCfg.docker_cpus ?? "1"), "docker_cpus"),
+      "--memory", assertAllowedArg(String(sandboxCfg.docker_memory ?? "256m"), "docker_memory"),
+      "-v", `${assertAllowedArg(projectRoot, "projectRoot")}:/workspace:ro`,
       "-w", "/workspace",
-      image,
+      assertAllowedArg(image, "docker_image"),
       "node",
-      path.relative(projectRoot, handlerPath),
+      assertAllowedArg(path.relative(projectRoot, handlerPath), "handlerPath"),
     ];
 
     try {
@@ -96,6 +127,7 @@ async function executeInSandbox({
         timeout: effectiveTimeout,
         encoding: "utf8",
         maxBuffer: 1024 * 1024,
+        shell: false,
         env: {
           AGENT_CONTEXT_JSON: JSON.stringify(context ?? {}),
         },
@@ -120,6 +152,9 @@ async function executeInSandbox({
   }
 
   throw new Error(`Unknown sandbox strategy: ${strategy}`);
+  } finally {
+    releaseConcurrency();
+  }
 }
 
 module.exports = { executeInSandbox };

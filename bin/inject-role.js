@@ -13,6 +13,25 @@ const fs   = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
+function sanitizeErrorMessage(err) {
+  const raw = String(err?.message || 'Unknown error');
+  return raw.replace(/[\r\n\t]+/g, ' ').slice(0, 500);
+}
+
+function logInjectError(code, err, details = {}) {
+  const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+  const payload = {
+    level: 'error',
+    code,
+    message: sanitizeErrorMessage(err),
+    ...details,
+  };
+  if (!isProd && err?.stack) {
+    payload.stack = String(err.stack).split('\n').slice(0, 12).join('\n');
+  }
+  console.error(JSON.stringify(payload));
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 const ROOT       = path.resolve(__dirname, '..');
 const AGENT_YAML = process.argv.includes('--agent')
@@ -27,7 +46,9 @@ const SKILLS_DIR = path.join(ROOT, '.agents', 'skills');
 
 function loadAgentYaml() {
   if (!fs.existsSync(AGENT_YAML)) {
-    console.error(`[inject-role] ERROR: agent.yaml not found at ${AGENT_YAML}`);
+    logInjectError('AGENT_YAML_NOT_FOUND', new Error(`agent.yaml not found at ${AGENT_YAML}`), {
+      agent_yaml: AGENT_YAML,
+    });
     process.exit(1);
   }
   const raw = fs.readFileSync(AGENT_YAML, 'utf8');

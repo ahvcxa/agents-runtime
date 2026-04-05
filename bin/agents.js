@@ -25,10 +25,29 @@ const { formatTerminal }   = require("../src/diff/diff-formatter");
 
 const program = new Command();
 
+function sanitizeErrorMessage(err) {
+  const raw = String(err?.message || "Unknown error");
+  return raw.replace(/[\r\n\t]+/g, " ").slice(0, 500);
+}
+
+function logCliError(code, err, details = {}) {
+  const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+  const payload = {
+    level: "error",
+    code,
+    message: sanitizeErrorMessage(err),
+    ...details,
+  };
+  if (!isProd && err?.stack) {
+    payload.stack = String(err.stack).split("\n").slice(0, 12).join("\n");
+  }
+  console.error(JSON.stringify(payload));
+}
+
 program
   .name("agents")
   .description("Vendor-neutral AI agent runtime CLI")
-  .version("1.3.0");
+  .version("2.0.0");
 
 // ─── Shared option ───────────────────────────────────────────────────────────
 function projectRoot(opts) {
@@ -38,7 +57,7 @@ function projectRoot(opts) {
 function loadAgentConfig(configPath) {
   const abs = path.resolve(configPath);
   if (!fs.existsSync(abs)) {
-    console.error(`\x1b[31mError:\x1b[0m Agent config not found: ${abs}`);
+    logCliError("AGENT_CONFIG_NOT_FOUND", new Error(`Agent config not found: ${abs}`), { config_path: abs });
     process.exit(1);
   }
   const raw = fs.readFileSync(abs, "utf8");
@@ -46,7 +65,7 @@ function loadAgentConfig(configPath) {
     return yaml.load(raw);
   } catch {
     try { return JSON.parse(raw); } catch {
-      console.error(`\x1b[31mError:\x1b[0m Cannot parse agent config (expected YAML or JSON): ${abs}`);
+      logCliError("AGENT_CONFIG_PARSE_FAILED", new Error(`Cannot parse agent config: ${abs}`), { config_path: abs });
       process.exit(1);
     }
   }
@@ -70,7 +89,10 @@ program
     const agentConfig = loadAgentConfig(opts.config);
     let   input;
     try   { input = JSON.parse(opts.input); }
-    catch { console.error(`\x1b[31mError:\x1b[0m --input must be valid JSON`); process.exit(1); }
+    catch (err) {
+      logCliError("INVALID_INPUT_JSON", err, { flag: "--input" });
+      process.exit(1);
+    }
 
     try {
       const runtime = await createRuntime({
@@ -120,7 +142,7 @@ program
       await runtime.shutdown();
       process.exit(success ? 0 : 1);
     } catch (err) {
-      console.error(`\x1b[31m[ERROR]\x1b[0m ${err.message}`);
+      logCliError("RUN_COMMAND_FAILED", err, { command: "run", skill: opts.skill });
       process.exit(1);
     }
   });
@@ -143,7 +165,7 @@ program
       await runtime.shutdown();
       process.exit(0);
     } catch (err) {
-      console.error(`\x1b[31m✗ Compliance check failed:\x1b[0m\n${err.message}`);
+      logCliError("COMPLIANCE_CHECK_FAILED", err, { command: "check" });
       process.exit(1);
     }
   });
@@ -184,7 +206,7 @@ program
       await runtime.shutdown();
       process.exit(0);
     } catch (err) {
-      console.error(`\x1b[31m[ERROR]\x1b[0m ${err.message}`);
+      logCliError("LIST_COMMAND_FAILED", err, { command: "list" });
       process.exit(1);
     }
   });
@@ -213,7 +235,7 @@ program
       await runtime.shutdown();
       process.exit(0);
     } catch (err) {
-      console.error(`\x1b[31m[ERROR]\x1b[0m ${err.message}`);
+      logCliError("EVENTS_COMMAND_FAILED", err, { command: "events" });
       process.exit(1);
     }
   });
@@ -237,12 +259,17 @@ program
     const { current, baseline } = await store.loadPair(opts.skill, { baselineRef });
 
     if (!current) {
-      console.error(`\x1b[33m[diff]\x1b[0m No runs found for skill '${opts.skill}'.`);
-      console.error(`       Run it first: agents run --skill ${opts.skill} ...`);
+      logCliError("DIFF_NO_RUNS", new Error(`No runs found for skill '${opts.skill}'`), {
+        command: "diff",
+        skill: opts.skill,
+      });
       process.exit(1);
     }
     if (!baseline) {
-      console.error(`\x1b[33m[diff]\x1b[0m Only one run found — run the skill again to compare.`);
+      logCliError("DIFF_BASELINE_MISSING", new Error("Only one run found; baseline unavailable"), {
+        command: "diff",
+        skill: opts.skill,
+      });
       process.exit(1);
     }
 
