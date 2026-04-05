@@ -67,14 +67,17 @@ Claude will automatically call the `code_analysis` tool and return findings.
 9. **external_mcp_call** — Call external MCP tools through MCPManager
 10. **cognitive_remember** — Store memory in session or long-term store
 11. **cognitive_recall** — Semantic long-term memory retrieval
-12. **refactor** — Generate fix patches
-13. **compliance_check** — Validate agent configs
-14. **delegate_task** — Task delegation
-15. **send_agent_message** — Agent messaging
-16. **task_status** — Status tracking
-17. **ack_task** — Task acknowledgement
-18. **retry_task** — Retry failed tasks
-19. **semantic_events** — Semantic search
+12. **trace_report** — Per-trace step, latency, token usage report
+13. **mcp_health** — Health checks for external MCP clients
+14. **sandbox_health** — Health check for active sandbox provider
+15. **refactor** — Generate fix patches
+16. **compliance_check** — Validate agent configs
+17. **delegate_task** — Task delegation
+18. **send_agent_message** — Agent messaging
+19. **task_status** — Status tracking
+20. **ack_task** — Task acknowledgement
+21. **retry_task** — Retry failed tasks
+22. **semantic_events** — Semantic search
 
 ## Optional External MCP Client Layer
 
@@ -191,7 +194,7 @@ cat ~/.claude/claude_desktop_config.json | jq .
 
 1. Claude Desktop reads `claude_desktop_config.json`
 2. Launches MCP server via `node bin/mcp.js` on demand
-3. Server exposes 19 tools via MCP protocol
+3. Server exposes 22 tools via MCP protocol
 4. Claude discovers and uses tools automatically
 5. Tools call agents-runtime skills (code-analysis, security-audit, etc.)
 6. Results returned to Claude for human-readable output
