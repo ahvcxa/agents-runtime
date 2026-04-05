@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const { z } = require("zod");
 const { toToolResponse } = require("./tool-helpers");
+const { SlidingWindowRateLimiter } = require("../security/operation-limiter");
 
 const MCP_AGENT_ID = "mcp-client";
 const MCP_AUTH_LEVEL = 1;
@@ -15,6 +16,18 @@ const WRITE_MODES = {
   SAFE: "safe",
   FULL: "full",
 };
+
+const FILESYSTEM_RATE_LIMITER = new SlidingWindowRateLimiter({
+  windowMs: 60000,
+  max: 300,
+});
+
+function assertFilesystemRateLimit(operation) {
+  const verdict = FILESYSTEM_RATE_LIMITER.consume(`filesystem:${operation}`);
+  if (!verdict.ok) {
+    throw new Error(`Rate limit exceeded for ${operation}. Retry after ${verdict.retry_after_ms}ms.`);
+  }
+}
 
 function getWriteMode() {
   const raw = String(process.env.MCP_WRITE_MODE || WRITE_MODES.OFF).trim().toLowerCase();
@@ -85,6 +98,7 @@ async function assertWritePath(runtime, absolutePath) {
 }
 
 async function listProjectFiles(runtime, projectRoot, options = {}) {
+  assertFilesystemRateLimit("list_project_files");
   const {
     targetPath = ".",
     recursive = false,
@@ -164,6 +178,7 @@ async function listProjectFiles(runtime, projectRoot, options = {}) {
 }
 
 async function readProjectFile(runtime, projectRoot, options = {}) {
+  assertFilesystemRateLimit("read_project_file");
   const {
     targetPath,
     offset = 1,
@@ -207,6 +222,7 @@ async function readProjectFile(runtime, projectRoot, options = {}) {
 }
 
 async function writeProjectFile(runtime, projectRoot, options = {}) {
+  assertFilesystemRateLimit("write_project_file");
   const {
     targetPath,
     content,
@@ -329,6 +345,7 @@ function normalizePatchPath(rawPath) {
 }
 
 async function applyProjectPatch(runtime, projectRoot, options = {}) {
+  assertFilesystemRateLimit("apply_project_patch");
   const { patchText } = options;
   if (!patchText || typeof patchText !== "string") {
     throw new Error("patch_text is required");
@@ -389,6 +406,7 @@ async function applyProjectPatch(runtime, projectRoot, options = {}) {
 }
 
 async function deleteProjectPath(runtime, projectRoot, options = {}) {
+  assertFilesystemRateLimit("delete_project_path");
   const {
     targetPath,
     recursive = false,

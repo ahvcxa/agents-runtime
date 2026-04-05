@@ -9,7 +9,7 @@
 const path         = require("path");
 const fs           = require("fs");
 const fsp          = require("fs/promises");
-const { spawn }      = require("child_process");
+const { execFile }   = require("child_process");
 const os           = require("os");
 const { randomUUID } = require("crypto");
 const { ExecutorFactory } = require("./executors/executor-factory");
@@ -17,11 +17,10 @@ const { RunHistoryStore } = require("./diff/run-history-store");
 const { ReasoningLoop } = require("./orchestration/reasoning-loop");
 const { enforceHitl } = require("./orchestration/hitl-guard");
 
-// ─── Async spawn helper ────────────────────────────────────────────────────────
+// ─── Async execFile helper ─────────────────────────────────────────────────────
 /**
- * Non-blocking process execution using spawn().
- * Unlike execFile/promisify, this does NOT block the event loop under concurrent load.
- * stdout and stderr are streamed independently, supporting large outputs.
+ * Non-shell process execution using execFile().
+ * Avoids shell interpretation and blocks command-injection vectors.
  *
  * @param {string}   command
  * @param {string[]} args
@@ -30,38 +29,24 @@ const { enforceHitl } = require("./orchestration/hitl-guard");
  * @param {number}   [options.timeoutMs]
  * @returns {Promise<{ stdout: string, stderr: string, code: number }>}
  */
-function spawnAsync(command, args, options = {}) {
+function execFileAsync(command, args, options = {}) {
   const { cwd, timeoutMs = 30000 } = options;
 
   return new Promise((resolve, reject) => {
-    const child  = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout   = "";
-    let stderr   = "";
-
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new Error(`[spawnAsync] Process timed out after ${timeoutMs}ms: ${command}`));
-    }, timeoutMs);
-
-    child.stdout.on("data", (d) => { stdout += d; });
-    child.stderr.on("data", (d) => { stderr += d; });
-
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve({ stdout, stderr, code });
-      } else {
-        const err = new Error(`[spawnAsync] Process exited with code ${code}`);
+    execFile(command, args, {
+      cwd,
+      timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
+      encoding: "utf8",
+      shell: false,
+    }, (err, stdout = "", stderr = "") => {
+      if (err) {
         err.stdout = stdout;
         err.stderr = stderr;
-        err.code   = code;
         reject(err);
+        return;
       }
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timer);
-      reject(err);
+      resolve({ stdout, stderr, code: 0 });
     });
   });
 }
@@ -277,8 +262,7 @@ class AgentRunner {
     await fsp.writeFile(tmpFile, JSON.stringify(agentConfig), "utf8");
 
     try {
-      // spawnAsync is non-blocking — does not stall the event loop for concurrent agents
-      await spawnAsync("node", [checkerPath, "--agent-config", tmpFile], {
+      await execFileAsync("node", [checkerPath, "--agent-config", tmpFile], {
         cwd:       this.projectRoot,
         timeoutMs: 15000,
       });

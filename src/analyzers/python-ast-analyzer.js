@@ -10,7 +10,7 @@
  * Falls back gracefully if Python is unavailable.
  */
 
-const { spawn } = require("child_process");
+const { execFile } = require("child_process");
 
 // ─── Python AST extraction script ────────────────────────────────────────────
 const AST_SCRIPT = `
@@ -87,26 +87,18 @@ print(json.dumps(result))
  * @returns {Promise<object|null>} Parsed AST info, or null if Python unavailable
  */
 async function extractAstInfo(source, timeoutMs = 10000) {
+  if (typeof source !== "string") return null;
+  if (source.length > 5 * 1024 * 1024) return null;
+
   return new Promise((resolve) => {
-    let stdout = "";
-    let stderr = "";
-
-    const python = spawn("python3", ["-c", AST_SCRIPT], {
+    const child = execFile("python3", ["-c", AST_SCRIPT], {
       timeout: timeoutMs,
-    });
-
-    const timer = setTimeout(() => {
-      python.kill();
-      resolve(null); // Timeout — degrade gracefully
-    }, timeoutMs);
-
-    python.stdout.on("data", (d) => { stdout += d; });
-    python.stderr.on("data", (d) => { stderr += d; });
-
-    python.on("close", (code) => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        resolve(null); // Python unavailable or script error — degrade gracefully
+      maxBuffer: 1024 * 1024,
+      encoding: "utf8",
+      shell: false,
+    }, (err, stdout = "") => {
+      if (err) {
+        resolve(null);
         return;
       }
       try {
@@ -116,13 +108,7 @@ async function extractAstInfo(source, timeoutMs = 10000) {
       }
     });
 
-    python.on("error", () => {
-      clearTimeout(timer);
-      resolve(null); // python3 not found — degrade gracefully
-    });
-
-    python.stdin.write(source);
-    python.stdin.end();
+    child.stdin.end(source);
   });
 }
 

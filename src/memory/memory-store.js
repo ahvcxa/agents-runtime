@@ -7,6 +7,7 @@
  */
 
 const { createPersistenceAdapter } = require("./drivers");
+const { SlidingWindowRateLimiter } = require("../security/operation-limiter");
 
 class MemoryStoreClient {
   // Constants
@@ -21,6 +22,18 @@ class MemoryStoreClient {
     this.adapter = adapter;
     this.tagIndex = new Map();
     this.ttlMap = new Map();
+    const rateCfg = settings?.runtime?.cognitive_memory ?? {};
+    this.rateLimiter = new SlidingWindowRateLimiter({
+      windowMs: rateCfg.rate_limit_window_ms ?? 60000,
+      max: rateCfg.rate_limit_max_ops ?? 1200,
+    });
+  }
+
+  _assertRateLimit(operation) {
+    const verdict = this.rateLimiter.consume(`memory:${this.agentId}:${operation}`);
+    if (!verdict.ok) {
+      throw new Error(`[memory] Rate limit exceeded for ${operation}. Retry after ${verdict.retry_after_ms}ms`);
+    }
   }
 
   _resolveRule(key) {
@@ -73,6 +86,7 @@ class MemoryStoreClient {
   }
 
   set(key, value, options = {}) {
+    this._assertRateLimit("set");
     this._assertWrite(key);
     const ttl = options.ttl_seconds ?? this.settings.ttl_default_seconds ?? 3600;
     const tags = options.tags ?? [];
@@ -90,6 +104,7 @@ class MemoryStoreClient {
    }
 
   get(key) {
+    this._assertRateLimit("get");
     this._assertRead(key);
     if (this._isExpired(key)) {
       this.delete(key);
@@ -100,6 +115,7 @@ class MemoryStoreClient {
   }
 
   delete(key) {
+    this._assertRateLimit("delete");
     this._assertWrite(key);
     const entry = this.adapter.get(key);
     if (entry?._tags) this._unindexTags(key, entry._tags);
@@ -108,6 +124,7 @@ class MemoryStoreClient {
   }
 
   queryByTags(tags, options = {}) {
+    this._assertRateLimit("queryByTags");
     const limit = options.limit ?? 500;
     if (!tags.length) return [];
     const candidates = new Set(this.tagIndex.get(tags[0]) ?? []);
@@ -141,6 +158,7 @@ class MemoryStoreClient {
   }
 
   appendSemanticEvent(event) {
+    this._assertRateLimit("appendSemanticEvent");
     const semanticCfg = this.settings?.semantic_events ?? {};
     if (!semanticCfg.enabled) return;
 
@@ -165,6 +183,7 @@ class MemoryStoreClient {
   }
 
   semanticSearch(query, options = {}) {
+    this._assertRateLimit("semanticSearch");
     // Input validation — reject non-string or empty queries early
     if (typeof query !== "string" || query.trim().length === 0) {
       throw new Error("[memory] semanticSearch query must be a non-empty string");

@@ -9,7 +9,17 @@
 const path   = require("path");
 const fs     = require("fs");
 const fsp    = require("fs/promises");
-const { spawnSync } = require("child_process");
+const { execFileSync } = require("child_process");
+
+const ALLOWED_GIT_BINARIES = new Set(["git", "/usr/bin/git", "/usr/local/bin/git"]);
+
+function resolveGitBinary(candidate = "git") {
+  const bin = String(candidate || "git").trim();
+  if (!ALLOWED_GIT_BINARIES.has(bin)) {
+    throw new Error("[run-history-store] Unsupported git binary");
+  }
+  return bin;
+}
 
 // ─── Git helper ───────────────────────────────────────────────────────────────
 
@@ -20,10 +30,15 @@ const { spawnSync } = require("child_process");
  */
 function currentGitSha(cwd) {
   try {
-    const result = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
-      cwd, encoding: "utf8", timeout: 2000,
+    const gitBin = resolveGitBinary(process.env.AGENTS_GIT_BIN || "git");
+    const result = execFileSync(gitBin, ["rev-parse", "--short", "HEAD"], {
+      cwd,
+      encoding: "utf8",
+      timeout: 2000,
+      shell: false,
+      stdio: ["ignore", "pipe", "ignore"],
     });
-    return result.stdout?.trim() || "no-git";
+    return String(result || "").trim() || "no-git";
   } catch {
     return "no-git";
   }
