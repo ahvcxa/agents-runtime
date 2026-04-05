@@ -6,6 +6,15 @@ const fs = require("fs");
 const { SqliteMemoryProvider } = require("../src/memory/providers/sqlite-memory-provider");
 const { createMemoryProvider } = require("../src/memory/providers/memory-provider-factory");
 
+const HAS_NODE_SQLITE = (() => {
+  try {
+    require("node:sqlite");
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 describe("SqliteMemoryProvider", () => {
   const fixtureRoot = path.resolve(__dirname, "fixtures/project");
   const dbPath = path.resolve(fixtureRoot, ".agents/.test-cognitive-memory.sqlite");
@@ -16,7 +25,7 @@ describe("SqliteMemoryProvider", () => {
     try { fs.unlinkSync(`${dbPath}-shm`); } catch {}
   });
 
-  test("stores and retrieves long-term memory in sqlite", async () => {
+  (HAS_NODE_SQLITE ? test : test.skip)("stores and retrieves long-term memory in sqlite", async () => {
     const provider = new SqliteMemoryProvider({ project_root: fixtureRoot, sqlite_path: dbPath });
     await provider.init();
 
@@ -27,7 +36,7 @@ describe("SqliteMemoryProvider", () => {
     await provider.shutdown();
   });
 
-  test("supports semantic search", async () => {
+  (HAS_NODE_SQLITE ? test : test.skip)("supports semantic search", async () => {
     const provider = new SqliteMemoryProvider({ project_root: fixtureRoot, sqlite_path: dbPath });
     await provider.init();
     await provider.store("a", { t: "oauth" }, { text: "oauth refresh token rotation" });
