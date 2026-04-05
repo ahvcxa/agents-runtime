@@ -433,7 +433,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **22 tools**:
+Restart Claude Desktop — you'll see **24 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -451,6 +451,8 @@ Restart Claude Desktop — you'll see **22 tools**:
 | `trace_report` | Get per-trace latency and token usage report |
 | `mcp_health` | Health check configured external MCP clients |
 | `sandbox_health` | Health check active sandbox provider strategy |
+| `hitl_issue_token` | Issue one-time token for high-risk action approval |
+| `hitl_validate_token` | Validate HITL token before execution |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
 | `delegate_task` | Delegate tasks between agents |

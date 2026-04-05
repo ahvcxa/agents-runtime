@@ -143,6 +143,7 @@ class AgentRunner {
       traceId: runTraceId,
       agentId,
       skillId,
+      approvalManager: this.runtime?.approvalManager,
     });
 
     // 5. Cognitive pre-processing (memory retrieval)

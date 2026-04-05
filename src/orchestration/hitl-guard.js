@@ -36,7 +36,7 @@ function evaluateRisk(input = {}) {
   return risky;
 }
 
-function enforceHitl({ input, settings, logger, traceId, agentId, skillId }) {
+function enforceHitl({ input, settings, logger, traceId, agentId, skillId, approvalManager }) {
   const hitlEnabled = settings?.runtime?.hitl?.enabled !== false;
   if (!hitlEnabled) return;
 
@@ -44,7 +44,9 @@ function enforceHitl({ input, settings, logger, traceId, agentId, skillId }) {
   if (!risky.length) return;
 
   const requireExplicit = settings?.runtime?.hitl?.require_explicit_approval !== false;
+  const requireToken = settings?.runtime?.hitl?.require_approval_token !== false;
   const approved = input?.approval?.approved === true;
+  const approvalToken = input?.approval?.token;
 
   logger?.log?.({
     event_type: "AUDIT",
@@ -56,10 +58,31 @@ function enforceHitl({ input, settings, logger, traceId, agentId, skillId }) {
     approved,
   });
 
-  if (requireExplicit && !approved) {
+  if (!requireExplicit) return;
+
+  if (approved) {
+    if (!requireToken) return;
+    const consumed = approvalManager?.consume?.(approvalToken, { agentId, skillId, traceId });
+    if (consumed?.ok) return;
+    throw new Error(
+      `[HITL] approval.approved=true but token is missing or invalid. ` +
+      `Provide a valid approval token in input.approval.token.`
+    );
+  }
+
+  if (!approved) {
+    const token = approvalManager?.issue?.({
+      agentId,
+      skillId,
+      reason: `High-risk actions detected: ${risky.map((r) => r.value).join(" | ")}`,
+      traceId,
+      metadata: { risky_actions: risky },
+    });
+
     throw new Error(
       `[HITL] High-risk action requires explicit approval. ` +
-      `Provide input.approval.approved=true after review. Risks: ${risky.map((r) => r.value).join(" | ")}`
+      `Provide input.approval.approved=true and input.approval.token='${token?.token ?? "<token>"}' after review. ` +
+      `Risks: ${risky.map((r) => r.value).join(" | ")}`
     );
   }
 }

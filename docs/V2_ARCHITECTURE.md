@@ -56,6 +56,9 @@ Agentic OS orchestration layer.
    - `trace_report`
    - `mcp_health`
    - `sandbox_health`
+14. HITL approval token flow
+   - `src/orchestration/approval-manager.js`
+   - MCP tools: `hitl_issue_token`, `hitl_validate_token`
 
 ## Suggested v2.0 Target Structure
 
