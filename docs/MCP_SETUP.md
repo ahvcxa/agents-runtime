@@ -102,6 +102,23 @@ Add to Claude Desktop MCP config:
 
 All write actions require `confirm=true` and stay constrained to project root.
 
+### Ready-to-use config templates
+
+- `docs/examples/claude_desktop_config.safe.json`
+- `docs/examples/claude_desktop_config.full.json`
+- `docs/examples/claude_desktop_config.off.json`
+
+### Quick mode switch script
+
+Use the helper script to switch modes fast:
+
+```bash
+cd /path/to/agents-runtime
+./bin/switch-mcp-mode.sh safe   # or: full, off
+```
+
+Then fully restart Claude Desktop.
+
 ## Verification
 
 Test the MCP server locally:

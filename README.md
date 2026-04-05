@@ -483,6 +483,12 @@ Example Claude Desktop MCP config with write mode:
 }
 ```
 
+Quick switch helper:
+
+```bash
+./bin/switch-mcp-mode.sh safe   # off | safe | full
+```
+
 ### Example Claude conversation
 
 > **You:** Scan the src/ folder for security issues
