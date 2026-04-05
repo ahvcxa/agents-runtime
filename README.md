@@ -433,12 +433,14 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **10 new tools**:
+Restart Claude Desktop — you'll see **12 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
 | `code_analysis` | 5-principle static analysis (JS + Python) |
 | `security_audit` | OWASP Top 10 deep security audit |
+| `list_project_files` | Securely list files/directories under project root |
+| `read_project_file` | Securely read project files with line pagination |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
 | `delegate_task` | Delegate tasks between agents |

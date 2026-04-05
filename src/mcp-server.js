@@ -4,13 +4,14 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Model Context Protocol (MCP) server for agents-runtime.
  *
- * Exposes 4 tools that any MCP-compatible AI client (Claude Desktop, Cursor,
- * Windsurf, GPT with MCP bridge, etc.) can call directly:
+ * Exposes multiple tools that any MCP-compatible AI client (Claude Desktop,
+ * Cursor, Windsurf, GPT with MCP bridge, etc.) can call directly:
  *
  *   • code_analysis      — 5-principle static analysis (JS + Python)
  *   • security_audit     — OWASP Top 10 (2021) deep security audit
- *   • refactor           — Unified diff patch generator (dry-run safe)
- *   • compliance_check   — Agent authorization & contract validation
+ *   • list_project_files — Secure local filesystem listing
+ *   • read_project_file  — Secure file reader with pagination
+ *   • ... plus refactor/compliance/task/event tools
  *
  * Transport: stdio (standard for local MCP servers)
  * Usage:     node bin/mcp.js --project /path/to/project
@@ -21,6 +22,7 @@ const { z }                   = require("zod");
 const path                    = require("path");
 const { createRuntime }       = require("./engine");
 const { registerCodeAnalysisTool, registerSecurityAuditTool } = require("./mcp/tools-register");
+const { registerFilesystemTools } = require("./mcp/filesystem-tools");
 const { formatFindings, formatSkillResult, toToolResponse } = require("./mcp/tool-helpers");
 const { ComplianceValidator } = require("./mcp/validators/compliance-validator");
 
@@ -53,6 +55,7 @@ async function createMcpServer(projectRoot) {
   // Register code_analysis and security_audit tools
   registerCodeAnalysisTool(server, getRuntime, projectRoot);
   registerSecurityAuditTool(server, getRuntime, projectRoot);
+  registerFilesystemTools(server, getRuntime, projectRoot);
 
   // ── Tool 3: refactor ──────────────────────────────────────────────────────
   server.tool(
