@@ -88,11 +88,15 @@ class HeliconeExporter extends BaseExporter {
 function createExporter(settings = {}, logger = null) {
   const cfg = settings?.runtime?.observability ?? {};
   const provider = String(cfg.exporter || "noop").toLowerCase();
+  const providerCfg = {
+    ...cfg,
+    ...(cfg.exporters?.[provider] || {}),
+  };
 
-  if (provider === "langsmith") return new LangSmithExporter(cfg, logger);
-  if (provider === "phoenix") return new PhoenixExporter(cfg, logger);
-  if (provider === "helicone") return new HeliconeExporter(cfg, logger);
-  return new NoopExporter(cfg, logger);
+  if (provider === "langsmith") return new LangSmithExporter(providerCfg, logger);
+  if (provider === "phoenix") return new PhoenixExporter(providerCfg, logger);
+  if (provider === "helicone") return new HeliconeExporter(providerCfg, logger);
+  return new NoopExporter(providerCfg, logger);
 }
 
 module.exports = {

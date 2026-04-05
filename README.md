@@ -433,7 +433,7 @@ Add to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — you'll see **24 tools**:
+Restart Claude Desktop — you'll see **25 tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -446,6 +446,7 @@ Restart Claude Desktop — you'll see **24 tools**:
 | `delete_project_path` | Delete file/folder (requires `confirm=true`, full mode) |
 | `external_mcp_tools` | List tools discovered from configured external MCP servers |
 | `external_mcp_call` | Call a discovered external MCP tool through MCPManager |
+| `external_mcp_pipeline` | End-to-end external MCP -> sandbox -> long-term memory pipeline |
 | `cognitive_remember` | Store short-term or long-term memory entries |
 | `cognitive_recall` | Semantic recall over long-term memory |
 | `trace_report` | Get per-trace latency and token usage report |
