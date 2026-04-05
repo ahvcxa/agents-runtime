@@ -416,8 +416,7 @@ node bin/mcp.js --project /path/to/your/project
 
 ### Claude Desktop Configuration
 
-Add to `~/.config/claude/claude_desktop_config.json` (Linux) or
-`~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+Add to `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -434,7 +433,7 @@ Add to `~/.config/claude/claude_desktop_config.json` (Linux) or
 }
 ```
 
-Restart Claude Desktop — you'll see 4 new tools:
+Restart Claude Desktop — you'll see **10 new tools**:
 
 | MCP Tool | Description |
 |----------|-------------|
@@ -442,6 +441,14 @@ Restart Claude Desktop — you'll see 4 new tools:
 | `security_audit` | OWASP Top 10 deep security audit |
 | `refactor` | Unified diff patch generator (dry-run safe) |
 | `compliance_check` | Agent authorization & contract validation |
+| `delegate_task` | Delegate tasks between agents |
+| `send_agent_message` | Send messages to agents |
+| `task_status` | Check task execution status |
+| `ack_task` | Acknowledge completed tasks |
+| `retry_task` | Retry failed task execution |
+| `semantic_events` | Query semantic event memory |
+
+**Setup Details:** See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete configuration and troubleshooting.
 
 ### Example Claude conversation
 
