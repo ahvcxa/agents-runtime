@@ -178,7 +178,7 @@ async function createMcpServer(projectRoot) {
       from_agent: z.string(),
       to_agent: z.string(),
       action: z.string(),
-      payload: z.record(z.any()).optional().default({}),
+      payload: z.object({}).passthrough().optional().default({}),
     },
     async ({ from_agent, to_agent, action, payload }) => {
       try {
@@ -197,7 +197,7 @@ async function createMcpServer(projectRoot) {
     {
       from_agent: z.string(),
       to_agent: z.string(),
-      payload: z.record(z.any()).optional().default({}),
+      payload: z.object({}).passthrough().optional().default({}),
       parent_message_id: z.string().optional(),
       trace_id: z.string().optional(),
     },
@@ -280,7 +280,7 @@ async function createMcpServer(projectRoot) {
       from_agent: z.string(),
       to_agent: z.string(),
       action: z.string(),
-      payload: z.record(z.any()).optional().default({}),
+      payload: z.object({}).passthrough().optional().default({}),
       trace_id: z.string().optional(),
     },
     async ({ task_id, from_agent, to_agent, action, payload, trace_id }) => {
