@@ -59,6 +59,10 @@ Agentic OS orchestration layer.
 14. HITL approval token flow
    - `src/orchestration/approval-manager.js`
    - MCP tools: `hitl_issue_token`, `hitl_validate_token`
+15. End-to-end orchestration pipeline service
+   - `src/orchestration/pipeline-service.js`
+   - MCP tool: `external_mcp_pipeline`
+   - flow: external MCP -> sandbox -> long-term memory
 
 ## Suggested v2.0 Target Structure
 

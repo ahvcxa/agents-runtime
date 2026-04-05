@@ -65,21 +65,22 @@ Claude will automatically call the `code_analysis` tool and return findings.
 7. **delete_project_path** — Delete file/folder (requires `confirm=true`, `MCP_WRITE_MODE=full`)
 8. **external_mcp_tools** — List tools discovered from external MCP servers
 9. **external_mcp_call** — Call external MCP tools through MCPManager
-10. **cognitive_remember** — Store memory in session or long-term store
-11. **cognitive_recall** — Semantic long-term memory retrieval
-12. **trace_report** — Per-trace step, latency, token usage report
-13. **mcp_health** — Health checks for external MCP clients
-14. **sandbox_health** — Health check for active sandbox provider
-15. **hitl_issue_token** — Issue one-time approval token for risky actions
-16. **hitl_validate_token** — Validate approval token pre-execution
-17. **refactor** — Generate fix patches
-18. **compliance_check** — Validate agent configs
-19. **delegate_task** — Task delegation
-20. **send_agent_message** — Agent messaging
-21. **task_status** — Status tracking
-22. **ack_task** — Task acknowledgement
-23. **retry_task** — Retry failed tasks
-24. **semantic_events** — Semantic search
+10. **external_mcp_pipeline** — External MCP -> sandbox -> long-term memory pipeline
+11. **cognitive_remember** — Store memory in session or long-term store
+12. **cognitive_recall** — Semantic long-term memory retrieval
+13. **trace_report** — Per-trace step, latency, token usage report
+14. **mcp_health** — Health checks for external MCP clients
+15. **sandbox_health** — Health check for active sandbox provider
+16. **hitl_issue_token** — Issue one-time approval token for risky actions
+17. **hitl_validate_token** — Validate approval token pre-execution
+18. **refactor** — Generate fix patches
+19. **compliance_check** — Validate agent configs
+20. **delegate_task** — Task delegation
+21. **send_agent_message** — Agent messaging
+22. **task_status** — Status tracking
+23. **ack_task** — Task acknowledgement
+24. **retry_task** — Retry failed tasks
+25. **semantic_events** — Semantic search
 
 ## Optional External MCP Client Layer
 
@@ -196,7 +197,7 @@ cat ~/.claude/claude_desktop_config.json | jq .
 
 1. Claude Desktop reads `claude_desktop_config.json`
 2. Launches MCP server via `node bin/mcp.js` on demand
-3. Server exposes 24 tools via MCP protocol
+3. Server exposes 25 tools via MCP protocol
 4. Claude discovers and uses tools automatically
 5. Tools call agents-runtime skills (code-analysis, security-audit, etc.)
 6. Results returned to Claude for human-readable output

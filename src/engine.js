@@ -24,6 +24,7 @@ const { SandboxManager } = require("./sandbox/sandbox-manager");
 const { StepTracker } = require("./observability/step-tracker");
 const { createExporter } = require("./observability/exporters");
 const { ApprovalManager } = require("./orchestration/approval-manager");
+const { PipelineService } = require("./orchestration/pipeline-service");
 
 class AgentRuntime {
   /**
@@ -61,6 +62,7 @@ class AgentRuntime {
     this.stepTracker = new StepTracker(this.logger);
     this.traceExporter = createExporter(this.settings, this.logger);
     this.approvalManager = new ApprovalManager(this.settings, this.logger);
+    this.pipelineService = new PipelineService(this);
 
     this.logger.log({
       event_type: "INFO",
@@ -228,6 +230,11 @@ class AgentRuntime {
     this._assertReady();
     const report = this.traceReport(traceId);
     return this.traceExporter.exportTrace(report);
+  }
+
+  async runMcpSandboxMemoryPipeline(params) {
+    this._assertReady();
+    return this.pipelineService.runExternalMcpSandboxMemoryPipeline(params);
   }
 
   /** Graceful shutdown */

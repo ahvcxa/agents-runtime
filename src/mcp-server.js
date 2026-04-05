@@ -137,6 +137,40 @@ async function createMcpServer(projectRoot) {
   );
 
   server.tool(
+    "external_mcp_pipeline",
+    "Runs end-to-end pipeline: external MCP tool -> sandbox transform -> long-term memory persistence.",
+    {
+      tool_name: z.string().describe("External MCP tool name."),
+      tool_input: z.object({}).passthrough().optional().default({}),
+      server_id: z.string().optional().describe("Optional explicit server id."),
+      query: z.string().optional().describe("Optional retrieval query for pre-processing memory recall."),
+      sandbox_mode: z.enum(["pass_through", "extract_text", "summarize"]).optional().default("pass_through"),
+      memory_key: z.string().optional().describe("Optional long-term memory key override."),
+      timeout_ms: z.number().int().min(1000).max(120000).optional().default(20000),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ tool_name, tool_input, server_id, query, sandbox_mode, memory_key, timeout_ms, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const result = await rt.runMcpSandboxMemoryPipeline({
+          agent_id: "mcp-client",
+          tool_name,
+          tool_input,
+          server_id,
+          query,
+          sandbox_mode,
+          memory_key,
+          timeout_ms,
+        });
+
+        return toToolResponse(JSON.stringify(result, null, 2), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
     "cognitive_remember",
     "Stores an insight into short-term session memory or long-term memory.",
     {

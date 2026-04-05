@@ -49,6 +49,12 @@ const DEFAULTS = {
       enabled: true,
       exporter: "noop",
       cost_tracking: true,
+      timeout_ms: 5000,
+      exporters: {
+        langsmith: { endpoint: "", api_key: "" },
+        phoenix: { endpoint: "", api_key: "" },
+        helicone: { endpoint: "", api_key: "" },
+      },
     },
   },
   logging: {
