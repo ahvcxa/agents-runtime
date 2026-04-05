@@ -38,6 +38,15 @@ Agentic OS orchestration layer.
 8. Cognitive MCP bridge tools
    - `cognitive_remember`
    - `cognitive_recall`
+9. Reasoning loop middleware
+   - `src/orchestration/reasoning-loop.js`
+   - pre-process retrieval + post-process persistence
+10. HITL risk guard
+   - `src/orchestration/hitl-guard.js`
+   - blocks high-risk actions unless explicit approval is provided
+11. Observability step tracking
+   - `src/observability/step-tracker.js`
+   - exporter abstraction: `src/observability/exporters/index.js`
 
 ## Suggested v2.0 Target Structure
 

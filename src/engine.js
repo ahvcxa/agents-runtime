@@ -21,6 +21,8 @@ const { createMemoryStore } = require("./memory/memory-store");
 const { MCPManager } = require("./mcp/client/mcp-manager");
 const { createMemoryProvider } = require("./memory/providers/memory-provider-factory");
 const { SandboxManager } = require("./sandbox/sandbox-manager");
+const { StepTracker } = require("./observability/step-tracker");
+const { createExporter } = require("./observability/exporters");
 
 class AgentRuntime {
   /**
@@ -55,6 +57,8 @@ class AgentRuntime {
     this.mcpManager = new MCPManager(this.settings, this.logger);
     this.cognitiveMemory = createMemoryProvider(this.settings);
     this.sandboxManager = new SandboxManager(this.settings, this.logger);
+    this.stepTracker = new StepTracker(this.logger);
+    this.traceExporter = createExporter(this.settings, this.logger);
 
     this.logger.log({
       event_type: "INFO",
@@ -206,6 +210,22 @@ class AgentRuntime {
   async sandboxHealth() {
     this._assertReady();
     return this.sandboxManager.healthCheck();
+  }
+
+  trackStep(step) {
+    this._assertReady();
+    return this.stepTracker.track(step);
+  }
+
+  traceReport(traceId) {
+    this._assertReady();
+    return this.stepTracker.reportTrace(traceId);
+  }
+
+  async exportTrace(traceId) {
+    this._assertReady();
+    const report = this.traceReport(traceId);
+    return this.traceExporter.exportTrace(report);
   }
 
   /** Graceful shutdown */

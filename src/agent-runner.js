@@ -14,6 +14,8 @@ const os           = require("os");
 const { randomUUID } = require("crypto");
 const { ExecutorFactory } = require("./executors/executor-factory");
 const { RunHistoryStore } = require("./diff/run-history-store");
+const { ReasoningLoop } = require("./orchestration/reasoning-loop");
+const { enforceHitl } = require("./orchestration/hitl-guard");
 
 // ─── Async spawn helper ────────────────────────────────────────────────────────
 /**
@@ -77,6 +79,7 @@ class AgentRunner {
     this.settings     = runtime.settings;
     this.projectRoot  = runtime.projectRoot;
     this._activeTimers = new Set();
+    this.reasoningLoop = new ReasoningLoop(runtime);
   }
 
   /**
@@ -132,12 +135,38 @@ class AgentRunner {
     const log  = (entry) => this.logger.log({ trace_id: runTraceId, ...entry });
     const emit = (event) => this.eventBus.dispatch({ trace_id: runTraceId, ...event });
 
-    // 4. Pre-skill hook
+    // 4. HITL guard (high-risk action approval)
+    enforceHitl({
+      input,
+      settings: this.settings,
+      logger: this.logger,
+      traceId: runTraceId,
+      agentId,
+      skillId,
+    });
+
+    // 5. Cognitive pre-processing (memory retrieval)
+    const preStart = Date.now();
+    const enhancedInput = await this.reasoningLoop.preProcess({
+      agentId,
+      skillId,
+      input,
+      traceId: runTraceId,
+    });
+    this.runtime?.trackStep?.({
+      trace_id: runTraceId,
+      agent_id: agentId,
+      skill_id: skillId,
+      phase: "pre_process",
+      latency_ms: Date.now() - preStart,
+    });
+
+    // 6. Pre-skill hook
     let invocationKey;
     try {
       const results = await this.hookRegistry.dispatch("before_skill_execution", {
         agent_id: agentId, skill_id: skillId, auth_level: authLevel,
-        skill_manifest: skillManifest, input, memory, settings: this.settings, log,
+        skill_manifest: skillManifest, input: enhancedInput, memory, settings: this.settings, log,
       });
       invocationKey = results.find((r) => r.result?.invocation_key)?.result?.invocation_key;
     } catch (err) {
@@ -145,13 +174,30 @@ class AgentRunner {
       throw err;
     }
 
-    // 5. Execute skill
+    // 7. Execute skill
     const startMs = Date.now();
     let result, success;
 
     try {
-      result  = await this._executeSkill(skillManifest, agentId, authLevel, input, memory, log, runTraceId);
+      const actionStart = Date.now();
+      this.eventBus.dispatch({
+        event_type: "Action",
+        from: agentId,
+        trace_id: runTraceId,
+        context_boundary: "Orchestration",
+        payload: { skill_id: skillId },
+      });
+
+      result  = await this._executeSkill(skillManifest, agentId, authLevel, enhancedInput, memory, log, runTraceId);
       success = true;
+      this.runtime?.trackStep?.({
+        trace_id: runTraceId,
+        agent_id: agentId,
+        skill_id: skillId,
+        phase: "action",
+        latency_ms: Date.now() - actionStart,
+        token_usage: result?.token_usage,
+      });
     } catch (err) {
       result  = { error: err.message, trace_id: runTraceId };
       success = false;
@@ -160,13 +206,38 @@ class AgentRunner {
 
     const duration_ms = Date.now() - startMs;
 
-    // 6. Post-skill hook
+    // 8. Post-skill hook
     await this.hookRegistry.dispatch("after_skill_execution", {
       agent_id: agentId, skill_id: skillId, invocation_key: invocationKey,
       result, success, duration_ms, memory, skill_manifest: skillManifest, log, emit,
     });
 
-    // 7. Persist run history (async, non-blocking — errors are swallowed)
+    // 9. Cognitive post-processing (trace + memory persistence)
+    const postStart = Date.now();
+    await this.reasoningLoop.postProcess({
+      agentId,
+      skillId,
+      traceId: runTraceId,
+      input: enhancedInput,
+      result,
+      success,
+      durationMs: duration_ms,
+    });
+    this.runtime?.trackStep?.({
+      trace_id: runTraceId,
+      agent_id: agentId,
+      skill_id: skillId,
+      phase: "post_process",
+      latency_ms: Date.now() - postStart,
+    });
+
+    try {
+      await this.runtime?.exportTrace?.(runTraceId);
+    } catch {
+      // non-fatal observability path
+    }
+
+    // 10. Persist run history (async, non-blocking — errors are swallowed)
     if (success) {
       const historyStore = new RunHistoryStore(this.projectRoot);
       historyStore.save(skillId, result, {
