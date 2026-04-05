@@ -9,6 +9,35 @@ class BaseExporter {
   async exportTrace(_traceReport) {
     throw new Error("BaseExporter.exportTrace() must be implemented");
   }
+
+  async _postJson(url, payload, headers = {}) {
+    if (!url) {
+      return { ok: true, skipped: true, reason: "no endpoint configured" };
+    }
+
+    const controller = new AbortController();
+    const timeoutMs = Math.max(1000, Number(this.config?.timeout_ms ?? 5000));
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      return {
+        ok: res.ok,
+        status: res.status,
+        status_text: res.statusText,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }
 
 class NoopExporter extends BaseExporter {
@@ -19,34 +48,40 @@ class NoopExporter extends BaseExporter {
 
 class LangSmithExporter extends BaseExporter {
   async exportTrace(traceReport) {
-    this.logger?.log?.({
-      event_type: "INFO",
-      message: "LangSmith exporter placeholder",
-      trace_id: traceReport?.trace_id,
-    });
-    return { ok: true, exporter: "langsmith", queued: true };
+    const headers = {};
+    if (this.config?.api_key) headers["x-api-key"] = this.config.api_key;
+    const result = await this._postJson(this.config?.endpoint, {
+      trace: traceReport,
+      source: "agents-runtime",
+      exporter: "langsmith",
+    }, headers);
+    return { exporter: "langsmith", ...result };
   }
 }
 
 class PhoenixExporter extends BaseExporter {
   async exportTrace(traceReport) {
-    this.logger?.log?.({
-      event_type: "INFO",
-      message: "Phoenix exporter placeholder",
-      trace_id: traceReport?.trace_id,
-    });
-    return { ok: true, exporter: "phoenix", queued: true };
+    const headers = {};
+    if (this.config?.api_key) headers["authorization"] = `Bearer ${this.config.api_key}`;
+    const result = await this._postJson(this.config?.endpoint, {
+      trace: traceReport,
+      source: "agents-runtime",
+      exporter: "phoenix",
+    }, headers);
+    return { exporter: "phoenix", ...result };
   }
 }
 
 class HeliconeExporter extends BaseExporter {
   async exportTrace(traceReport) {
-    this.logger?.log?.({
-      event_type: "INFO",
-      message: "Helicone exporter placeholder",
-      trace_id: traceReport?.trace_id,
-    });
-    return { ok: true, exporter: "helicone", queued: true };
+    const headers = {};
+    if (this.config?.api_key) headers["helicone-auth"] = `Bearer ${this.config.api_key}`;
+    const result = await this._postJson(this.config?.endpoint, {
+      trace: traceReport,
+      source: "agents-runtime",
+      exporter: "helicone",
+    }, headers);
+    return { exporter: "helicone", ...result };
   }
 }
 

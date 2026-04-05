@@ -169,6 +169,58 @@ async function createMcpServer(projectRoot) {
     }
   );
 
+  server.tool(
+    "trace_report",
+    "Returns per-trace step timeline, latency totals, and token usage totals.",
+    {
+      trace_id: z.string().describe("Trace identifier returned by skill runs."),
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ trace_id, stream }) => {
+      try {
+        const rt = await getRuntime();
+        const report = rt.traceReport(trace_id);
+        return toToolResponse(JSON.stringify(report, null, 2), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "mcp_health",
+    "Health checks configured external MCP clients.",
+    {
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ stream }) => {
+      try {
+        const rt = await getRuntime();
+        const health = await rt.mcpHealth();
+        return toToolResponse(JSON.stringify(health, null, 2), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
+  server.tool(
+    "sandbox_health",
+    "Health check for active sandbox provider strategy.",
+    {
+      stream: z.boolean().optional().default(false),
+    },
+    async ({ stream }) => {
+      try {
+        const rt = await getRuntime();
+        const health = await rt.sandboxHealth();
+        return toToolResponse(JSON.stringify(health, null, 2), stream);
+      } catch (err) {
+        return toToolResponse(`❌ Internal error: ${err.message}`, stream);
+      }
+    }
+  );
+
   // ── Tool 3: refactor ──────────────────────────────────────────────────────
   server.tool(
     "refactor",

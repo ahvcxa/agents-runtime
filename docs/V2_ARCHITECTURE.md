@@ -47,6 +47,15 @@ Agentic OS orchestration layer.
 11. Observability step tracking
    - `src/observability/step-tracker.js`
    - exporter abstraction: `src/observability/exporters/index.js`
+12. Sandbox provider registry
+   - `src/sandbox/providers/index.js`
+   - `src/sandbox/providers/process-provider.js`
+   - `src/sandbox/providers/docker-provider.js`
+   - `src/sandbox/providers/e2b-provider.js`
+13. Operational health and trace tools
+   - `trace_report`
+   - `mcp_health`
+   - `sandbox_health`
 
 ## Suggested v2.0 Target Structure
 
