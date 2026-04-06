@@ -7,8 +7,9 @@ coverage/
 dist/
 *.jsonl
 
-# User-created agent configuration (use examples/ for templates)
-agent.yaml
+# User-created agent configuration overrides (agent.yaml in root is default template)
+# To create a custom agent config, copy from examples/ and this will be ignored:
+# agent.yaml.local
 
 # Agent logs & memory store
 .agents/
