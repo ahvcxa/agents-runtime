@@ -20,6 +20,21 @@
     }
   },
 
+  "ai_agent_discovery": {
+    "enabled": true,
+    "description": "Configuration for AI agent (LLM-based) startup and initialization",
+    "config_file": "agent.yaml",
+    "search_paths": [
+      "./agent.yaml",
+      "../agent.yaml",
+      "../../agent.yaml"
+    ],
+    "error_if_not_found": true,
+    "startup_timeout_seconds": 30,
+    "compliance_check_required": true,
+    "documentation": ".agents/agent-startup.md"
+  },
+
   "memory": {
     "description": "Cross-Agent Memory subsystem. Provides shared, indexed state accessible to authorized agents. All writes are copy-on-write to prevent race conditions.",
     "enabled": true,

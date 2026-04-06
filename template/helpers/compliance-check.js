@@ -140,6 +140,7 @@ function run() {
 
   const configArgIndex = process.argv.indexOf("--agent-config");
   const agentConfigPath = configArgIndex >= 0 ? process.argv[configArgIndex + 1] : null;
+  const jsonOutputFlag = process.argv.includes("--json");
 
   if (!agentConfigPath) {
     console.error(RED("Error: --agent-config <path> is required."));
@@ -155,38 +156,71 @@ function run() {
     process.exit(1);
   }
 
-  console.log(`Agent config : ${agentConfigPath}`);
-  console.log(`Settings     : ${settingsPath}`);
-  console.log(`Agent ID     : ${agentConfig?.agent?.id ?? "(unknown)"}\n`);
+  if (!jsonOutputFlag) {
+    console.log(`Agent config : ${agentConfigPath}`);
+    console.log(`Settings     : ${settingsPath}`);
+    console.log(`Agent ID     : ${agentConfig?.agent?.id ?? "(unknown)"}\n`);
+  }
 
   let passed = 0;
   let failed = 0;
+  const details = [];
 
   for (const check of checks) {
     let result;
     try { result = check.run(agentConfig, settings); }
     catch (e) { result = { pass: false, detail: `Check threw unexpected error: ${e.message}` }; }
 
+    details.push({
+      id: check.id,
+      name: check.name,
+      pass: result.pass,
+      detail: result.detail || ""
+    });
+
     if (result.pass) {
-      console.log(`${GREEN("✓")}  [${check.id}] ${check.name}`);
+      if (!jsonOutputFlag) console.log(`${GREEN("✓")}  [${check.id}] ${check.name}`);
       passed++;
     } else {
-      console.log(`${RED("✗")}  [${check.id}] ${check.name}`);
-      console.log(`   ${YELLOW("→")} ${result.detail}`);
+      if (!jsonOutputFlag) {
+        console.log(`${RED("✗")}  [${check.id}] ${check.name}`);
+        console.log(`   ${YELLOW("→")} ${result.detail}`);
+      }
       failed++;
     }
   }
 
-  console.log("\n" + "─".repeat(50));
-  console.log(`Results: ${GREEN(passed + " passed")}, ${failed > 0 ? RED(failed + " failed") : "0 failed"}\n`);
+  // Prepare standardized output
+  const output = {
+    status: failed > 0 ? "FAILED" : "PASSED",
+    timestamp: new Date().toISOString(),
+    agent_id: agentConfig?.agent?.id || "unknown",
+    agent_role: agentConfig?.agent?.role || "unknown",
+    authorization_level: parseInt(agentConfig?.agent?.authorization_level, 10) || 0,
+    skills_verified: Array.isArray(agentConfig?.agent?.skill_set)
+      ? agentConfig.agent.skill_set
+      : (agentConfig?.agent?.skill_set ? [agentConfig.agent.skill_set] : []),
+    checks_passed: passed,
+    checks_failed: failed,
+    details: details
+  };
 
-  if (failed > 0) {
-    console.error(RED("COMPLIANCE FAILURE — Agent MUST NOT proceed.\n"));
-    process.exit(1);
+  if (jsonOutputFlag) {
+    // JSON output for AI agents
+    console.log(JSON.stringify(output, null, 2));
   } else {
-    console.log(GREEN("All checks passed. Agent may proceed.\n"));
-    process.exit(0);
+    // Human-readable output
+    console.log("\n" + "─".repeat(50));
+    console.log(`Results: ${GREEN(passed + " passed")}, ${failed > 0 ? RED(failed + " failed") : "0 failed"}\n`);
+
+    if (failed > 0) {
+      console.error(RED("COMPLIANCE FAILURE — Agent MUST NOT proceed.\n"));
+    } else {
+      console.log(GREEN("All checks passed. Agent may proceed.\n"));
+    }
   }
+
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 run();
