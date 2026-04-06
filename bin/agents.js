@@ -500,6 +500,7 @@ program
   .description("Run compliance check for an agent config (no skill execution)")
   .option("-c, --config <path>", "Path to agent YAML/JSON config (auto-detected if omitted)")
   .option("-p, --project <dir>",  "Project root (default: cwd)")
+  .option("-v, --verbose", "Show detailed error information")
   .action(async (opts) => {
     const root        = projectRoot(opts);
 
@@ -524,6 +525,10 @@ program
       await runtime.shutdown();
       process.exit(0);
     } catch (err) {
+      if (opts.verbose) {
+        console.error("\n[DETAILED ERROR]", err);
+        console.error(err.stack);
+      }
       logCliError("COMPLIANCE_CHECK_FAILED", err, { command: "check" });
       process.exit(1);
     }

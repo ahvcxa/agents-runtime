@@ -244,7 +244,12 @@ class AgentRunner {
 
   /** Run the compliance-check.js helper as a non-blocking subprocess */
   async _runComplianceCheck(agentConfig) {
-    const checkerPath = path.join(this.projectRoot, ".agents", "helpers", "compliance-check.js");
+    // Try .cjs first (for ESM projects), then .js (for CommonJS projects)
+    let checkerPath = path.join(this.projectRoot, ".agents", "helpers", "compliance-check.cjs");
+    if (!fs.existsSync(checkerPath)) {
+      checkerPath = path.join(this.projectRoot, ".agents", "helpers", "compliance-check.js");
+    }
+    
     if (!fs.existsSync(checkerPath)) {
       this.logger.warn({ event_type: "WARN", message: "compliance-check.js not found, skipping." });
       return;

@@ -50,19 +50,37 @@ class HookRegistry {
   }
 
   _register(def) {
-    if (!fs.existsSync(def.absolutePath)) {
-      if (def.required) {
-        throw new Error(`[hook-registry] Required hook '${def.id}' not found at: ${def.absolutePath}`);
-      }
-      this.logger?.warn({ event_type: "WARN", message: `Optional hook '${def.id}' not found, skipping.` });
-      return;
-    }
-
+    let hookPath = def.absolutePath;
+    
+    // Try to load hook, with fallback to .cjs for ESM projects
     let mod;
     try {
-      mod = require(def.absolutePath);
+      mod = require(hookPath);
     } catch (err) {
-      throw new Error(`[hook-registry] Failed to load hook '${def.id}': ${err.message}`);
+      // If the error indicates ESM context issue, try .cjs variant
+      const isEsmError = 
+        err.message?.includes('require is not defined') || 
+        err.message?.includes('module is not defined') ||
+        err.code === 'ERR_REQUIRE_ESM';
+      
+      if (isEsmError && !hookPath.endsWith('.cjs')) {
+        const cjsPath = hookPath.replace(/\.hook\.js$/, '.hook.cjs').replace(/\.js$/, '.cjs');
+        try {
+          mod = require(cjsPath);
+        } catch (cjsErr) {
+          if (def.required) {
+            throw new Error(`[hook-registry] Failed to load hook '${def.id}': ${err.message}`);
+          }
+          this.logger?.warn({ event_type: "WARN", message: `Failed to load hook '${def.id}': ${err.message}` });
+          return;
+        }
+      } else {
+        if (def.required) {
+          throw new Error(`[hook-registry] Failed to load hook '${def.id}': ${err.message}`);
+        }
+        this.logger?.warn({ event_type: "WARN", message: `Failed to load hook '${def.id}': ${err.message}` });
+        return;
+      }
     }
 
     this._hooks.set(def.id, { def, mod });

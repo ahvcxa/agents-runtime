@@ -127,6 +127,75 @@ if [ ! -f "$DEST/logs/.gitkeep" ]; then
   echo -e "  ${GREEN}CREATED${NC}   .agents/logs/.gitkeep"
 fi
 
+# For ESM projects, create .cjs copies of all CommonJS files
+# This allows them to run in projects with "type": "module" in package.json
+if [ -f "$TARGET_DIR/package.json" ] && grep -q '"type":\s*"module"' "$TARGET_DIR/package.json" 2>/dev/null; then
+  # Enable nullglob to handle empty glob patterns properly
+  shopt -s nullglob
+  
+    # Copy helpers as .cjs
+   for js_file in "$DEST"/helpers/*.js; do
+     if [ -f "$js_file" ]; then
+       cjs_file="${js_file%.js}.cjs"
+       cp "$js_file" "$cjs_file"
+     fi
+   done
+   echo -e "  ${GREEN}COPIED${NC}    .agents/helpers/*.cjs (ESM support)"
+   
+   # Copy hooks as .cjs
+   for js_file in "$DEST"/hooks/*.js; do
+     if [ -f "$js_file" ]; then
+       cjs_file="${js_file%.js}.cjs"
+       cp "$js_file" "$cjs_file"
+     fi
+   done
+   echo -e "  ${GREEN}COPIED${NC}    .agents/hooks/*.cjs (ESM support)"
+   
+    # Copy skill handlers as .cjs
+    for js_file in "$DEST"/skills/*/*.js; do
+      if [ -f "$js_file" ] && [[ "$js_file" == */handler.js ]]; then
+        cjs_file="${js_file%.js}.cjs"
+        cp "$js_file" "$cjs_file"
+      fi
+    done
+    echo -e "  ${GREEN}COPIED${NC}    .agents/skills/*/handler.cjs (ESM support)"
+   
+    # Copy skill lib files as .cjs (for nested requires in handlers)
+    for js_file in "$DEST"/skills/*/lib/*.js; do
+      if [ -f "$js_file" ]; then
+        cjs_file="${js_file%.js}.cjs"
+        cp "$js_file" "$cjs_file"
+      fi
+    done
+    echo -e "  ${GREEN}COPIED${NC}    .agents/skills/*/lib/*.cjs (ESM support)"
+    
+    # Remove original .js files from lib/ to force require() to use .cjs versions
+    for js_file in "$DEST"/skills/*/lib/*.js; do
+      if [ -f "$js_file" ]; then
+        rm "$js_file"
+      fi
+    done
+    echo -e "  ${GREEN}REMOVED${NC}   .agents/skills/*/lib/*.js (use .cjs instead)"
+    
+    # Update handler.cjs files to require lib files as .cjs
+    if command -v node &> /dev/null; then
+      for handler_cjs in "$DEST"/skills/*/handler.cjs; do
+        if [ -f "$handler_cjs" ]; then
+          node "$SCRIPT_DIR/bin/fix-handler-requires.js" "$handler_cjs" 2>/dev/null || true
+        fi
+      done
+      
+      # Also update lib/*.cjs files to require sibling modules as .cjs
+      for lib_cjs in "$DEST"/skills/*/lib/*.cjs; do
+        if [ -f "$lib_cjs" ]; then
+          node "$SCRIPT_DIR/bin/fix-handler-requires.js" "$lib_cjs" 2>/dev/null || true
+        fi
+      done
+      
+      echo -e "  ${GREEN}UPDATED${NC}    .agents/skills/**/*.cjs (requires → .cjs)"
+    fi
+fi
+
 # Update .gitignore
 if [ -f "$TARGET_DIR/.gitignore" ]; then
   if ! grep -q ".agents/logs" "$TARGET_DIR/.gitignore" 2>/dev/null; then
@@ -146,6 +215,12 @@ if [ -n "$AGENT_TEMPLATE" ]; then
     else
       cp "$TEMPLATE_FILE" "$TARGET_DIR/agent.yaml"
       echo -e "  ${GREEN}CREATED${NC}   agent.yaml (from ${AGENT_TEMPLATE} template)"
+      
+      # Auto-detect project structure and inject real paths
+      if command -v node &> /dev/null; then
+        echo -e "  ${BLUE}DETECTING${NC}  project structure..."
+        node "$SCRIPT_DIR/bin/auto-configure-agent.js" "$TARGET_DIR/agent.yaml" "$TARGET_DIR" 2>/dev/null || true
+      fi
     fi
   else
     echo -e "  ${RED}ERROR${NC}   Agent template '${AGENT_TEMPLATE}' not found in examples/ directory."
