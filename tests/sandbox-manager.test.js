@@ -2,6 +2,9 @@
 
 const { SandboxManager } = require("../src/sandbox/sandbox-manager");
 
+// Increase timeout for SandboxManager tests (initialization can be slow)
+jest.setTimeout(15000);
+
 describe("SandboxManager", () => {
   test("health is healthy in process mode", async () => {
     const manager = new SandboxManager({ runtime: { sandbox: { strategy: "process" } } });
