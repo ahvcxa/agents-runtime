@@ -59,7 +59,7 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 - npm ≥ 9.0.0
 - Python 3.8+ *(optional — enables deep AST-based analysis for Python files)*
 
-### 1. Clone the runtime
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/ahvcxa/agents-runtime.git
@@ -67,16 +67,47 @@ cd agents-runtime
 npm install
 ```
 
-### 2. Install the agent config into your project
+### 2. Interactive Setup (Recommended!)
+
+Run the interactive setup wizard:
 
 ```bash
-# Install alongside a predefined template (observer, executor, fullstack, orchestrator, security-only)
+npm run setup
+```
+
+This will:
+- Ask you a few questions (agent type, Python support, CI/CD)
+- Create `.agents/` configuration
+- Generate `QUICK_START.md` and `NEXT_STEPS.md` guides
+- Validate your setup
+
+### 3. Quick Commands
+
+Once set up, use simplified commands:
+
+```bash
+# Analyze code
+agents analyze src/ tests/
+
+# Security audit
+agents audit src/ .env.example
+
+# Check compliance
+agents check
+
+# List skills
+agents list
+```
+
+### 4. Traditional setup (if you prefer manual control)
+
+If you don't want the interactive wizard:
+
+```bash
 bash setup-agents.sh /path/to/your/project --agent fullstack
 ```
 
-### 3. Create or review agent config
-
-If you skipped the `--agent` flag above, create `agent.yaml` in your project root manually (otherwise, you can just edit the generated one):
+Then create or edit `agent.yaml` in your project root:
 
 ```yaml
 agent:
@@ -92,27 +123,24 @@ agent:
     - "tests/"
 ```
 
-### 4. Run
+### 5. Run
 
 ```bash
 # Verify compliance
-node bin/agents.js check \
-  --config /your-project/agent.yaml \
-  --project /your-project
+agents check
 
 # Analyze code
-node bin/agents.js run \
-  --config /your-project/agent.yaml \
-  --skill code-analysis \
-  --input '{"files":["src/"],"project_root":"/your-project"}' \
-  --project /your-project
+agents analyze src/
 
 # Security audit
+agents audit src/
+
+# Or use full command syntax (for advanced users)
 node bin/agents.js run \
-  --config /your-project/agent.yaml \
-  --skill security-audit \
-  --input '{"files":["src/",".env.example"],"project_root":"/your-project"}' \
-  --project /your-project
+  --config agent.yaml \
+  --skill code-analysis \
+  --input '{"files":["src/"],"project_root":"."}' \
+  --project .
 ```
 
 ---
@@ -199,53 +227,95 @@ agents-runtime/              ← repo root
 
 ## ⚙️ CLI Reference
 
+### Quick Commands (Recommended)
+
+For most users, these simplified commands are all you need:
+
+```bash
+# Set up agents-runtime (interactive)
+npm run setup
+
+# Analyze your code
+agents analyze src/ tests/
+
+# Security audit
+agents audit src/ .env.example
+
+# Compliance check
+agents check
+
+# List all skills
+agents list
+
+# Show event history
+agents events
 ```
+
+### Advanced Commands (Full Syntax)
+
+For power users who need fine-grained control:
+
+```bash
 Usage: agents <command> [options]
 
 Commands:
-  run     Execute a skill against a project
+  run     Execute a skill against a project (advanced)
+  analyze Quickly analyze code (recommended for code-analysis)
+  audit   Quick security audit (recommended for security-audit)
   check   Run compliance check for an agent config
   list    List registered skills and hooks
   events  Show recent domain events from memory
-  diff    Compare the two most recent runs of a skill (no execution)
+  diff    Compare the two most recent runs of a skill
 
 Options:
   --config <path>   Path to agent YAML config file
-  --project <path>  Path to project root (contains .agents/)
-  --skill <id>      Skill to execute (for 'run' and 'diff' commands)
+  --project <path>  Path to project root
+  --skill <id>      Skill to execute (for 'run' command)
   --input <json>    JSON input to pass to the skill handler
+  --export <path>   Export result to file (.json/.html/.pdf)
   -v, --verbose     Enable verbose output
-  --diff            Show diff vs. previous run after execution
-  --baseline <ref>  Baseline for diff: index or git SHA prefix (default: 1)
+  --diff            Show diff vs. previous run
   -h, --help        Display help
 ```
 
 ### Examples
 
+#### Simplified way (NEW - Recommended!)
+
 ```bash
-# List all skills and hooks registered in a project
-node bin/agents.js list --project ./my-project
+# Just analyze
+agents analyze src/
 
-# Compliance check
-node bin/agents.js check --config ./my-project/agent.yaml --project ./my-project
+# Analyze multiple folders
+agents analyze src/ lib/ tests/
 
-# Full code analysis of a Python + JS project (with diff/trend output)
-node bin/agents.js run \
-  --config ./my-project/agent.yaml \
+# Audit security
+agents audit src/ config/
+
+# Export results
+agents analyze src/ --export report.json
+```
+
+#### Full command way (Advanced)
+
+```bash
+# Full code analysis with all options
+agents run \
+  --config agent.yaml \
   --skill code-analysis \
   --input '{"files":["src/","tests/"],"project_root":"./my-project"}' \
   --project ./my-project \
   --diff
 
 # Security audit
-node bin/agents.js run \
+agents run \
   --config ./my-project/agent.yaml \
   --skill security-audit \
   --input '{"files":["src/",".env.example","package.json"],"project_root":"./my-project"}' \
   --project ./my-project
 
-# Compare the two most recent runs of security audit (without running analysis)
-node bin/agents.js diff \
+# Compare the two most recent runs (without running analysis)
+agents diff \
   --skill security-audit \
   --project ./my-project
 ```
