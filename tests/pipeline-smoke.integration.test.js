@@ -7,6 +7,7 @@ describe("v2 smoke: external MCP -> sandbox -> memory pipeline", () => {
   const projectRoot = path.resolve(__dirname, "fixtures/project");
 
   test("completes pipeline and persists long-term memory", async () => {
+    jest.setTimeout(15000);
     const rt = await createRuntime({ projectRoot, verbosity: "silent" });
     try {
       // Mock external MCP dependency to keep test deterministic

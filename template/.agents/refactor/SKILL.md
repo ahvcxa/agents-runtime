@@ -7,7 +7,7 @@ aggregate_root: Refactoring
 output_event: RefactoringProposed
 output_schema: Patch[]
 read_only: false
-handler: .agents/skills/refactor/handler.js
+handler: .agents/refactor/handler.js
 ---
 
 
