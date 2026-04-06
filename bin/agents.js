@@ -83,18 +83,82 @@ function sanitizeErrorMessage(err) {
   return raw.replace(/[\r\n\t]+/g, " ").slice(0, 500);
 }
 
-function logCliError(code, err, details = {}) {
-  const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production";
-  const payload = {
-    level: "error",
-    code,
-    message: sanitizeErrorMessage(err),
-    ...details,
+/**
+ * User-friendly error messages for common issues
+ */
+function getUserFriendlyErrorMessage(code, err, context = {}) {
+  const msg = err?.message || "";
+
+  const suggestions = {
+    AGENT_CONFIG_NOT_FOUND: {
+      title: "Agent configuration not found",
+      suggestion: `Run 'npm run setup' to create agent.yaml interactively, or use:\n    bash setup-agents.sh . --agent fullstack`,
+    },
+    AGENT_CONFIG_PARSE_FAILED: {
+      title: "Cannot parse agent configuration",
+      suggestion: `Check your agent.yaml syntax:\n    - Use spaces, not tabs for indentation\n    - Make sure all colons and quotes are balanced\n    - Try: cat agent.yaml | head -20`,
+    },
+    INVALID_INPUT_JSON: {
+      title: "Invalid JSON input",
+      suggestion: `For quick commands, don't use --input:\n    agents analyze src/\n    agents audit src/\n\nFor advanced usage, ensure valid JSON:\n    agents run --input '{"files":["src/"]}'`,
+    },
+    RUN_COMMAND_FAILED: {
+      title: "Skill execution failed",
+      suggestion: `Try these steps:\n    1. agents check --config agent.yaml\n    2. agents analyze src/ --verbose\n    3. Check .agents/logs/ for details`,
+    },
+    ANALYZE_COMMAND_FAILED: {
+      title: "Code analysis failed",
+      suggestion: `Make sure paths exist and are readable:\n    agents analyze src/\n    agents analyze src/ lib/ tests/\n\nWith verbose output:\n    agents analyze src/ --verbose`,
+    },
+    AUDIT_COMMAND_FAILED: {
+      title: "Security audit failed",
+      suggestion: `Try:\n    agents audit src/\n    agents audit src/ --verbose\n    agents audit src/ --export report.json`,
+    },
+    COMPLIANCE_CHECK_FAILED: {
+      title: "Compliance check failed",
+      suggestion: `Your agent configuration has issues:\n    1. agents check (auto-detects config)\n    2. agents check --config agent.yaml\n    3. Review agent.yaml for syntax errors`,
+    },
+    LIST_COMMAND_FAILED: {
+      title: "Failed to list skills",
+      suggestion: `Make sure .agents/ folder exists:\n    ls -la .agents/\n    npm run setup`,
+    },
+    DIFF_NO_RUNS: {
+      title: `No analysis runs found for skill '${context.skill}'`,
+      suggestion: `Run the analysis first:\n    agents analyze src/\n    agents diff --skill code-analysis`,
+    },
+    DIFF_BASELINE_MISSING: {
+      title: "Need at least 2 runs to compare",
+      suggestion: `Run the skill twice:\n    agents analyze src/\n    agents analyze src/  (second time)\n    agents diff --skill code-analysis`,
+    },
   };
-  if (!isProd && err?.stack) {
-    payload.stack = String(err.stack).split("\n").slice(0, 12).join("\n");
+
+  return suggestions[code] || {
+    title: sanitizeErrorMessage(err),
+    suggestion: "Check .agents/logs/ for detailed error information",
+  };
+}
+
+function logCliError(code, err, details = {}) {
+  console.log("");
+  const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+  const userMsg = getUserFriendlyErrorMessage(code, err, details);
+
+  logError(userMsg.title);
+  console.log(`\n${colors.gray}${userMsg.suggestion}${colors.reset}\n`);
+
+  // Only show JSON in production or with verbose
+  if (isProd || process.argv.includes("--verbose")) {
+    const payload = {
+      level: "error",
+      code,
+      message: sanitizeErrorMessage(err),
+      ...details,
+    };
+    if (!isProd && err?.stack) {
+      payload.stack = String(err.stack).split("\n").slice(0, 5).join("\n");
+    }
+    console.error(JSON.stringify(payload));
   }
-  console.error(JSON.stringify(payload));
 }
 
 program
