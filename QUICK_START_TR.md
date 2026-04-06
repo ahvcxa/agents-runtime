@@ -32,24 +32,27 @@ Etkileşimli bir sihirbaz seni rehber edecek. Sadece soruları cevapla!
 ### 2. İlk Analiz
 
 ```bash
-# Kodunuzu analiz et
-agents analyze src/
+# Kurulum sonrası, proje klasöründesin
+# npm scripts ile komutu çalıştır:
 
-# Güvenlik kontrolü yap
-agents audit src/
+npm run analyze -- src/
+
+npm run audit -- src/
 ```
 
 **İşte! Bitirdin!** 🎉
 
 ## 📚 Temel Komutlar
 
+Kurulum sonrası `npm run` ile:
+
 | Komut | Ne yapar | Örnek |
 |-------|----------|-------|
-| `agents analyze` | Kod kalitesini analiz et | `agents analyze src/ lib/` |
-| `agents audit` | Güvenlik açıkları bul | `agents audit src/ config/` |
-| `agents check` | Yapılandırmayı doğrula | `agents check` |
-| `agents list` | Mevcut skills'i göster | `agents list` |
-| `agents events` | Son olayları göster | `agents events` |
+| `npm run analyze` | Kod kalitesini analiz et | `npm run analyze -- src/ lib/` |
+| `npm run audit` | Güvenlik açıkları bul | `npm run audit -- src/ config/` |
+| `npm run check` | Yapılandırmayı doğrula | `npm run check` |
+| `npm run list` | Mevcut skills'i göster | `npm run list` |
+| `npm run events` | Son olayları göster | `npm run events` |
 
 ## 🔍 Analiz Çıktısı Nasıl Okunur?
 
