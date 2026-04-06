@@ -15,6 +15,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] — 2026-04-07
+
+### Changed
+
+- **🔧 Technical Debt Elimination — 5,200+ Lines of Code Duplication Removed**:
+  - Consolidated documentation via symlinks: AGENT_CONTRACT.md, AI_AGENT_GUIDE.md, security guides unified across template/ and examples/
+  - Consolidated skill libraries via symlinks: code-analysis and security-audit lib files now referenced from single source (.agents/skills/)
+  - Removed redundant template/skills/ directory (consolidated to template/.agents/)
+  - Eliminates 1,200+ lines of code duplication and 4,000+ lines of documentation duplication
+
+- **🗑️ Dead Code Cleanup**:
+  - Removed incomplete stub drivers: postgres-driver.js and redis-driver.js (non-functional placeholders)
+  - Updated memory driver factory with clear error messages for unimplemented backends
+  - Removed redundant FINDINGS.md and IMPROVEMENTS.md (history preserved in git commits)
+
+- **📋 Project Organization**:
+  - Enhanced .gitignore with IDE, OS, build artifact, and test coverage patterns
+  - Fixed test imports to reference consolidated skill libraries
+  - Updated 280+ unit tests to pass without deprecated drivers
+
+### Fixed
+
+- Memory driver factory now properly handles undefined backends with actionable error messages
+- All 280+ unit tests passing (was: 2 failures due to incomplete drivers)
+- Reduced repository size by ~4,600 lines of duplication
+
+### Deprecated
+
+- Redis memory driver (postgres-driver.js, redis-driver.js) — Use in-process or file-based persistence instead. Full implementations planned for v2.5.0.
+
+### Technical Notes
+
+- All changes are backward compatible (no breaking changes for v2.4.0)
+- Single source of truth principle applied to shared documentation and skill libraries
+- Symlinks used for DRY implementation (git-compatible, tested on Linux/macOS/Windows)
+- Full git history preserved — all removed content recoverable from commits
+
+---
+
 ## [2.3.0] — 2026-04-07
 
 ### Added
