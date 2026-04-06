@@ -1,1 +1,1 @@
-../../../../.agents/skills/security-audit/MIGRATION_GUIDE.md
+../../../.agents/skills/security-audit/MIGRATION_GUIDE.md

@@ -1,1 +1,1 @@
-../../../../../.agents/skills/security-audit/lib/rules.js
+../../../../.agents/skills/security-audit/lib/rules.js

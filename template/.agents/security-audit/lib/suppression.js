@@ -1,1 +1,1 @@
-../../../../../.agents/skills/security-audit/lib/suppression.js
+../../../../.agents/skills/security-audit/lib/suppression.js

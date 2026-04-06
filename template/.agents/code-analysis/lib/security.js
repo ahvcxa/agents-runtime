@@ -1,1 +1,1 @@
-../../../../../.agents/skills/code-analysis/lib/security.js
+../../../../.agents/skills/code-analysis/lib/security.js

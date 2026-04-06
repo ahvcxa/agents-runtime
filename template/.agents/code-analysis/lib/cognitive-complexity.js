@@ -1,1 +1,1 @@
-../../../../../.agents/skills/code-analysis/lib/cognitive-complexity.js
+../../../../.agents/skills/code-analysis/lib/cognitive-complexity.js

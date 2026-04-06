@@ -1,1 +1,1 @@
-../../../../.agents/skills/security-audit/ENTERPRISE_GUIDE.md
+../../../.agents/skills/security-audit/ENTERPRISE_GUIDE.md
