@@ -227,6 +227,11 @@ class VectorMemoryDriver {
   async store(key, value, options = {}) {
     if (!this.initialized) await this.init();
 
+    // Validate key
+    if (!key || typeof key !== "string") {
+      throw new Error(`[VectorMemoryDriver] Invalid key: key must be a non-empty string, got ${typeof key}`);
+    }
+
     try {
       const vector = computeTextVector(
         typeof value === "string" ? value : JSON.stringify(value),

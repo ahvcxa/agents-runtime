@@ -243,11 +243,10 @@ describe("VectorMemoryDriver", () => {
   });
 
   describe("error handling", () => {
-    it("should handle null key gracefully", async () => {
-      // With graceful fallback, null key doesn't throw but stores in-memory
-      await driver.store(null, "value");
-      // Should not crash
-      expect(driver.vectorIndex.size).toBeGreaterThanOrEqual(0);
+    it("should throw on invalid key in store", async () => {
+      await expect(driver.store(null, "value")).rejects.toThrow();
+      await expect(driver.store("", "value")).rejects.toThrow();
+      await expect(driver.store(123, "value")).rejects.toThrow();
     });
 
     it("should handle store/retrieve of large data", async () => {
