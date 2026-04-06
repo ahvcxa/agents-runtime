@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- _No user-facing changes yet._
+
+---
+
+## [2.5.0] — 2026-04-07
+
+### Added
+
 - **🎯 Autonomous Skill Discovery System** (Major Feature):
   - Automatic skill detection from filesystem (.agents/{skill-id}/SKILL.md)
   - Zero-configuration setup: `npm run setup` now auto-discovers and registers all skills
