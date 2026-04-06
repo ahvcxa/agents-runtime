@@ -1,1 +1,1 @@
-../../../../../.agents/skills/code-analysis/lib/solid.js
+../../../../.agents/skills/code-analysis/lib/solid.js

@@ -1,1 +1,1 @@
-../../../../../.agents/skills/code-analysis/lib/dry.js
+../../../../.agents/skills/code-analysis/lib/dry.js

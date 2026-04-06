@@ -1,1 +1,1 @@
-../../../../../.agents/skills/code-analysis/lib/cyclomatic-complexity.js
+../../../../.agents/skills/code-analysis/lib/cyclomatic-complexity.js

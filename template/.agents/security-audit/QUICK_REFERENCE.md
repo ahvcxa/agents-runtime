@@ -1,1 +1,1 @@
-../../../../.agents/skills/security-audit/QUICK_REFERENCE.md
+../../../.agents/skills/security-audit/QUICK_REFERENCE.md

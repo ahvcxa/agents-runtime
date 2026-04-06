@@ -111,6 +111,41 @@ copy_file() {
   fi
 }
 
+copy_symlink_content() {
+  local src_link="$1"
+  local dest="$2"
+  local rel_path="${dest#$DEST/}"
+
+  # Resolve symlink to actual file by computing absolute path
+  # For relative symlinks, must resolve from the symlink's directory
+  local target
+  local symlink_dir="$(dirname "$src_link")"
+  local symlink_target="$(readlink "$src_link")"
+  
+  # If symlink target is relative, make it absolute using symlink's directory
+  if [[ "$symlink_target" == /* ]]; then
+    target="$symlink_target"
+  else
+    # Relative symlink - resolve from its directory
+    # Use a subshell to handle relative paths correctly
+    target="$( (cd "$symlink_dir" && [ -e "$symlink_target" ] && echo "$(pwd)/$symlink_target") )"
+  fi
+
+  # Only proceed if we have a valid target that exists
+  if [ -n "$target" ] && [ -f "$target" ]; then
+    mkdir -p "$(dirname "$dest")"
+    
+    if [ -f "$dest" ] && [ "$FORCE" = false ]; then
+      echo -e "  ${YELLOW}SKIPPED${NC}   .agents/$rel_path  (symlink, use --force to overwrite)"
+      FILES_SKIPPED=$((FILES_SKIPPED + 1))
+    else
+      cp "$target" "$dest"
+      echo -e "  ${GREEN}COPIED${NC}    .agents/$rel_path (symlink → resolved)"
+      FILES_COPIED=$((FILES_COPIED + 1))
+    fi
+  fi
+}
+
 echo -e "${BOLD}Copying files...${NC}"
 echo ""
 
@@ -119,6 +154,14 @@ while IFS= read -r -d '' src_file; do
   dest_file="$DEST/$relative_path"
   copy_file "$src_file" "$dest_file"
 done < <(find "$TEMPLATE_DIR" -type f -print0)
+
+# Handle symlinks: dereference them and copy actual content
+# This ensures CI/CD environments and target projects get real files instead of symlinks
+while IFS= read -r -d '' src_link; do
+  relative_path="${src_link#$TEMPLATE_DIR/}"
+  dest_file="$DEST/$relative_path"
+  copy_symlink_content "$src_link" "$dest_file"
+done < <(find "$TEMPLATE_DIR" -type l -print0)
 
 # Create logs/ directory
 mkdir -p "$DEST/logs"
