@@ -1,0 +1,125 @@
+{
+  "id": "data-transform",
+  "version": "1.0.0",
+  "name": "Data Transform",
+  "description": "Safe JSON parsing, transformation, filtering, merging, and validation with circular reference detection and size limits",
+  "authorization_required_level": 0,
+  "input": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["parse", "stringify", "transform", "filter", "merge", "validate", "extract"],
+        "description": "Transformation operation"
+      },
+      "data": {
+        "description": "Input data (type varies by operation). Max 50MB."
+      },
+      "rules": {
+        "type": "object",
+        "description": "Transformation rules (structure varies by operation)"
+      },
+      "schema": {
+        "type": "object",
+        "description": "JSON Schema for validation"
+      },
+      "options": {
+        "type": "object",
+        "description": "Operation-specific options"
+      }
+    },
+    "required": ["operation"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "data": {
+        "description": "Transformed/validated data"
+      },
+      "error": {
+        "type": ["object", "null"]
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "executionTime": { "type": "number" },
+          "timestamp": { "type": "string" },
+          "inputSize": { "type": "number" },
+          "outputSize": { "type": "number" },
+          "operation": { "type": "string" }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "Parse JSON",
+      "input": {
+        "operation": "parse",
+        "data": "{\"name\": \"John\", \"age\": 30}"
+      },
+      "output": {
+        "success": true,
+        "data": { "name": "John", "age": 30 },
+        "error": null,
+        "metadata": {
+          "executionTime": 1,
+          "timestamp": "2026-04-07T...",
+          "operation": "parse"
+        }
+      }
+    },
+    {
+      "name": "Filter Array",
+      "input": {
+        "operation": "filter",
+        "data": [1, 2, 3, 4, 5],
+        "rules": { "predicate": "x > 2" }
+      },
+      "output": {
+        "success": true,
+        "data": [3, 4, 5],
+        "error": null,
+        "metadata": {
+          "executionTime": 2,
+          "timestamp": "2026-04-07T..."
+        }
+      }
+    },
+    {
+      "name": "Validate Against Schema",
+      "input": {
+        "operation": "validate",
+        "data": { "email": "user@example.com" },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "email": { "type": "string", "format": "email" }
+          },
+          "required": ["email"]
+        }
+      },
+      "output": {
+        "success": true,
+        "data": { "valid": true, "errors": [] },
+        "error": null,
+        "metadata": {
+          "executionTime": 1,
+          "timestamp": "2026-04-07T..."
+        }
+      }
+    }
+  ],
+  "security_notes": [
+    "SAFE PARSING: Uses JSON.parse() with error handling. No eval() or Function() constructors.",
+    "CIRCULAR REFERENCES: Detected and marked as '[Circular]' in output.",
+    "SIZE LIMITS: Max 50MB input JSON. Prevents memory exhaustion.",
+    "SCHEMA VALIDATION: Uses JSON Schema (draft 2020-12) for validation.",
+    "TYPE SAFETY: All operations validate input types before processing.",
+    "NO CODE EXECUTION: Transformation rules are data-only, no code execution."
+  ]
+}

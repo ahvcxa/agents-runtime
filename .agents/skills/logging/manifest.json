@@ -1,0 +1,142 @@
+{
+  "id": "logging",
+  "version": "1.0.0",
+  "name": "Logging",
+  "description": "Structured logging with automatic sensitive data masking, audit trail, and log rotation",
+  "authorization_required_level": 0,
+  "input": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["log", "debug", "info", "warn", "error", "tail", "search", "clear"],
+        "description": "Logging operation"
+      },
+      "level": {
+        "type": "string",
+        "enum": ["DEBUG", "INFO", "WARN", "ERROR"],
+        "default": "INFO",
+        "description": "Log level"
+      },
+      "message": {
+        "type": "string",
+        "description": "Log message. Max 4096 chars."
+      },
+      "data": {
+        "description": "Additional context data (auto-masked for sensitive info)"
+      },
+      "lines": {
+        "type": "number",
+        "default": 100,
+        "minimum": 1,
+        "maximum": 1000,
+        "description": "Number of lines to retrieve (tail operation)"
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Regex pattern for search"
+      }
+    },
+    "required": ["operation"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "data": {
+        "description": "Log data (structure varies by operation)"
+      },
+      "error": {
+        "type": ["object", "null"]
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "executionTime": { "type": "number" },
+          "timestamp": { "type": "string" },
+          "masked": { "type": "boolean" },
+          "maskedFields": { "type": "array" }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "Log Info Message",
+      "input": {
+        "operation": "log",
+        "level": "INFO",
+        "message": "User logged in successfully",
+        "data": { "userId": "123", "timestamp": "2026-04-07T12:00:00Z" }
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "message": "User logged in successfully",
+          "level": "INFO",
+          "timestamp": "2026-04-07T12:00:00.000Z"
+        },
+        "error": null,
+        "metadata": {
+          "executionTime": 5,
+          "timestamp": "2026-04-07T12:00:00.000Z",
+          "masked": false
+        }
+      }
+    },
+    {
+      "name": "Log with Password (Auto-Masked)",
+      "input": {
+        "operation": "log",
+        "level": "WARN",
+        "message": "Authentication attempt",
+        "data": { "password": "secret123" }
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "message": "Authentication attempt",
+          "level": "WARN",
+          "data": { "password": "***MASKED***" }
+        },
+        "error": null,
+        "metadata": {
+          "executionTime": 3,
+          "timestamp": "2026-04-07T12:01:00.000Z",
+          "masked": true,
+          "maskedFields": ["password"]
+        }
+      }
+    },
+    {
+      "name": "Tail Recent Logs",
+      "input": {
+        "operation": "tail",
+        "lines": 50
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "logs": ["[INFO] ...", "[ERROR] ...", "..."],
+          "count": 50
+        },
+        "error": null,
+        "metadata": {
+          "executionTime": 15,
+          "timestamp": "2026-04-07T12:02:00.000Z"
+        }
+      }
+    }
+  ],
+  "security_notes": [
+    "SENSITIVE DATA MASKING: Auto-detects and masks passwords, tokens, API keys, secrets.",
+    "AUDIT TRAIL: All logging operations are recorded with timestamp and context.",
+    "MASKED PATTERNS: password, token, api_key, authorization, secret, aws_secret, private_key",
+    "LOG ROTATION: Logs rotate at 100MB (configurable). Prevents disk exhaustion.",
+    "NO DEBUG DATA: Debug logs in production can contain sensitive info. Use appropriately.",
+    "CLEAR OPERATION: Permanently deletes logs. Use with caution."
+  ]
+}

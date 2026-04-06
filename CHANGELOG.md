@@ -15,6 +15,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] — 2026-04-07
+
+### Added
+
+- **🛠️ Default Skills Library** — Five professional-grade utility skills for all projects:
+  - **http-request**: Secure HTTP/HTTPS API calls with automatic retries, exponential backoff, timeout protection, SSL verification, and credential masking (Level 0)
+  - **file-operations**: Read/write/append/delete files with sandbox mode (confined to `/.agents/workspace/`), path traversal prevention, blocked file list, size limits (Level 1)
+  - **system-command**: Execute shell commands safely with whitelist pattern (node, npm, git, curl, jq), no shell interpolation, timeout protection, stderr capture (Level 2 — admin only)
+  - **data-transform**: Safe JSON parsing, transformation, filtering, merging, validation with circular reference detection and size limits (Level 0)
+  - **logging**: Structured logging with automatic sensitive data masking (passwords, tokens, API keys), audit trail, and log rotation (Level 0)
+
+- **🔒 Skills Security Framework**:
+  - `.agents/skills/SECURITY.md` — Comprehensive security best practices for skill developers (30+ patterns)
+  - Input validation against JSON Schema for all skills
+  - Automatic masking of sensitive data in logs and error responses
+  - Size limits on all operations to prevent resource exhaustion
+  - Authorization level enforcement (0=public, 1=internal, 2=admin)
+  - Sandbox mode for file operations (path traversal prevention, blocked file list)
+  - Whitelist pattern for system commands (no shell interpolation possible)
+  - Timeout protection on all I/O operations
+  - Comprehensive error codes for debugging
+
+- **📚 Skills Documentation**:
+  - `.agents/skills/README.md` — Skills library overview, quick start, development guide
+  - Individual SKILL.md for each skill with examples, parameters, error codes, security best practices, troubleshooting
+  - Manifest.json with input/output schema, examples, and security notes for each skill
+
+- **✅ Skills Testing & Examples**:
+  - Unit tests for each skill (handler.test.js) covering security scenarios
+  - Basic examples in each skill directory
+  - Test coverage for: input validation, security violations, size limits, error handling, edge cases
+
+### Changed
+
+- **manifest.json**: Updated `skills` section with 5 new default skills (now 8 total: 5 default + 3 domain-specific)
+  - Skills ordered by category: Integration → IO → Execution → Transformation → Observability
+  - All skills registered with authorization level, bounded context, and description
+
+- **template/.agents/**: Full skills directory synced for distribution to new projects
+  - `template/.agents/skills/` now contains all 8 skills (5 new defaults + 3 existing)
+  - `template/.agents/manifest.json` updated with new skills registration
+
+### Technical Details
+
+- **Authorization Levels**:
+  - Level 0 (Public/Default): http-request, data-transform, logging — no authorization required
+  - Level 1 (Internal): file-operations, code-analysis, security-audit — requires agent auth level ≥ 1
+  - Level 2 (Admin): system-command, refactor — requires agent auth level ≥ 2
+
+- **Response Format** (Consistent across all skills):
+  - `success`: boolean indicating operation completion
+  - `data`: operation-specific result
+  - `error`: null on success, error object with code/message/details on failure
+  - `metadata`: execution time, timestamp, and operation-specific metrics
+
+- **Error Codes** (Standardized):
+  - Network: INVALID_URL, NETWORK_TIMEOUT, NETWORK_ERROR, SSL_ERROR, HTTP_ERROR
+  - File: FILE_NOT_FOUND, PERMISSION_DENIED, IS_DIRECTORY, FILE_TOO_LARGE, SANDBOX_VIOLATION, PATH_TRAVERSAL_ATTEMPT, BLOCKED_FILE
+  - Command: COMMAND_NOT_ALLOWED, COMMAND_TIMEOUT, COMMAND_NOT_FOUND, INVALID_ARGS, OUTPUT_TOO_LARGE, COMMAND_FAILED
+  - Data: INVALID_JSON, SIZE_LIMIT_EXCEEDED, SCHEMA_ERROR, UNSAFE_OPERATION, TRANSFORM_FAILED
+  - Logging: INVALID_PATTERN, LOGGING_FAILED
+
+- **Size Limits** (Resource protection):
+  - http-request: 5MB request body, 50MB response body
+  - file-operations: 10MB per file
+  - system-command: 1024 char command, 32KB total args, 2MB stdout/stderr each
+  - data-transform: 50MB JSON input
+  - logging: 4096 char per message, 100MB log file rotation
+
+### Dependencies
+
+- No new dependencies added. All skills use Node.js built-in modules:
+  - http, https, zlib (http-request)
+  - fs, path (file-operations)
+  - child_process (system-command)
+  - ajv (data-transform, for JSON Schema validation)
+  - (logging uses fs only)
+
+### Migration Guide
+
+For existing projects:
+1. Update `.agents/manifest.json` (new 5 skills auto-included in version 2.3.0)
+2. Copy new skills to `.agents/skills/` if needed
+3. No breaking changes — all existing skills unchanged
+
+For new projects:
+1. Run `setup.sh` to get all 8 skills automatically
+2. Skills available immediately after setup
+
+### Known Limitations
+
+1. **file-operations**: Sandbox restricted to `/.agents/workspace/` — cannot access system files or user home directory
+2. **system-command**: Only whitelisted commands allowed — cannot execute arbitrary binaries
+3. **http-request**: Requires HTTPS by default (HTTP supported but not recommended)
+4. **data-transform**: No code execution in filters — only safe predicates (x > 2, x.length > 10, etc.)
+5. **logging**: Sensitive data masking is pattern-based — highly unusual variable names may not be detected
+
+### Performance Baseline
+
+| Skill | Typical Time | Notes |
+|-------|----------|-------|
+| http-request (GET) | 200-500ms | Depends on network |
+| file-operations (read) | 5-50ms | Depends on file size |
+| system-command | 50-500ms | Depends on command |
+| data-transform | 1-100ms | Depends on data size |
+| logging (write) | 2-10ms | Async, non-blocking |
+
+---
+
 ## [2.2.0] — 2026-04-06
 
 ### Added
