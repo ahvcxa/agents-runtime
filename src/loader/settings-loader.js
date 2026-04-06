@@ -31,8 +31,8 @@ const DEFAULTS = {
       docker_image: "node:20-alpine",
       docker_cpus: "1",
       docker_memory: "256m",
-      rate_limit_window_ms: 60000, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in executor.js"
-      rate_limit_max_calls: 240, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in executor.js"
+      rate_limit_window_ms: 60000, // agent-suppress: A04:2021
+      rate_limit_max_calls: 240, // agent-suppress: A04:2021
       max_concurrent_executions: 8,
       wasm_module_path: "",
     },
@@ -53,8 +53,8 @@ const DEFAULTS = {
       short_term_enabled: true,
       long_term_enabled: true,
       retrieval_top_k: 5,
-      rate_limit_window_ms: 60000, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in memory-store.js"
-      rate_limit_max_ops: 1200, // agent-suppress: express-rate-limit reason="Enforced by custom SlidingWindowRateLimiter in memory-store.js"
+      rate_limit_window_ms: 60000, // agent-suppress: A04:2021
+      rate_limit_max_ops: 1200, // agent-suppress: A04:2021
     },
     hitl: {
       enabled: true,
