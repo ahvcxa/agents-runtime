@@ -268,28 +268,37 @@ Agent Type: ${agentType}
 
 ## Your first command (60 seconds)
 
+### Option 1: Using npm scripts (recommended)
+
 \`\`\`bash
 # Analyze your code
+npm run analyze -- src/
+
+# Security audit
+npm run audit -- src/
+
+# Compliance check
+npm run check
+\`\`\`
+
+### Option 2: Using direct node command
+
+\`\`\`bash
 node ${path.relative(projectDir, path.join(runtimeDir, "bin/agents.js"))} run \\
   --config agent.yaml \\
   --skill code-analysis \\
   --input '{"files":["src/"],"project_root":"."}'
 \`\`\`
 
-Or use the simplified command:
-\`\`\`bash
-agents analyze src/
-\`\`\`
-
 ## Common commands
 
 | Task | Command |
 |------|---------|
-| Analyze code | \`agents analyze src/\` |
-| Security audit | \`agents audit src/\` |
-| Check compliance | \`agents check --config agent.yaml\` |
-| List skills | \`agents list\` |
-| Show events | \`agents events\` |
+| Analyze code | \`npm run analyze -- src/\` |
+| Security audit | \`npm run audit -- src/\` |
+| Check compliance | \`npm run check\` |
+| List skills | \`npm run list\` |
+| Show events | \`npm run events\` |
 
 ## Configuration
 
@@ -308,14 +317,14 @@ See \`.agents/TROUBLESHOOTING.md\` for common issues and solutions.
 
 1. Review \`.agents/settings.json\` for runtime config
 2. Add your project paths to \`.agents/settings.json\`
-3. Run \`agents check\` to validate your config
+3. Run \`npm run check\` to validate your config
 4. Integrate into CI/CD (see NEXT_STEPS.md)
 
 ## Documentation
 
-- Full docs: \`../../README.md\`
+- Full docs: \`${path.relative(projectDir, path.join(runtimeDir, "README.md"))}\`
 - Skill reference: \`.agents/skills/*/SKILL.md\`
-- Contributing: \`../../CONTRIBUTING.md\`
+- Contributing: \`${path.relative(projectDir, path.join(runtimeDir, "CONTRIBUTING.md"))}\`
 
 ${pythonSupport ? "## Python Support\n\nPython analysis is enabled. The runtime will analyze .py files in addition to .js/.ts files.\n" : ""}
 
