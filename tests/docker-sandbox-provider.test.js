@@ -7,6 +7,9 @@
 const { DockerSandboxProvider } = require("../src/sandbox/providers/docker-provider");
 
 describe("DockerSandboxProvider", () => {
+  // Docker operations can be slow in CI environments
+  jest.setTimeout(30000);
+
   let provider;
   let mockLogger;
 
