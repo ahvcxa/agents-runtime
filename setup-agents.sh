@@ -151,6 +151,10 @@ echo ""
 
 while IFS= read -r -d '' src_file; do
   relative_path="${src_file#$TEMPLATE_DIR/}"
+  # If file is in .agents/, strip the .agents/ prefix since $DEST is already .agents/
+  if [[ $relative_path == .agents/* ]]; then
+    relative_path="${relative_path#.agents/}"
+  fi
   dest_file="$DEST/$relative_path"
   copy_file "$src_file" "$dest_file"
 done < <(find "$TEMPLATE_DIR" -type f -print0)
@@ -159,6 +163,10 @@ done < <(find "$TEMPLATE_DIR" -type f -print0)
 # This ensures CI/CD environments and target projects get real files instead of symlinks
 while IFS= read -r -d '' src_link; do
   relative_path="${src_link#$TEMPLATE_DIR/}"
+  # If symlink is in .agents/, strip the .agents/ prefix since $DEST is already .agents/
+  if [[ $relative_path == .agents/* ]]; then
+    relative_path="${relative_path#.agents/}"
+  fi
   dest_file="$DEST/$relative_path"
   copy_symlink_content "$src_link" "$dest_file"
 done < <(find "$TEMPLATE_DIR" -type l -print0)
