@@ -46,10 +46,9 @@ const SKILLS_DIR = path.join(ROOT, '.agents', 'skills');
 
 function loadAgentYaml() {
   if (!fs.existsSync(AGENT_YAML)) {
-    logInjectError('AGENT_YAML_NOT_FOUND', new Error(`agent.yaml not found at ${AGENT_YAML}`), {
-      agent_yaml: AGENT_YAML,
-    });
-    process.exit(1);
+    // agent.yaml is optional — only needed if user has configured an agent
+    // In development/fresh installs, this is normal and not an error
+    return null;
   }
   const raw = fs.readFileSync(AGENT_YAML, 'utf8');
   // strip comment lines before parsing
@@ -192,6 +191,14 @@ function generate(agentConfig, skills) {
 
 function main() {
   const config   = loadAgentYaml();
+  
+  // agent.yaml is optional — if not found, skip CLAUDE.md generation
+  if (!config) {
+    console.warn(`[inject-role] ⊘ agent.yaml not found — skipping CLAUDE.md generation`);
+    console.warn(`[inject-role]   ↳ Run 'npm run setup' to configure an agent`);
+    return;
+  }
+  
   const skillSet = (config.agent || config).skill_set || [];
   const skills   = loadSkills(skillSet);
   const output   = generate(config, skills);
