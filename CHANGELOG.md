@@ -15,6 +15,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] — 2026-04-06
+
+### Added
+
+- **🤖 AI Agent Startup Protocol** — Mandatory initialization framework for LLM-based agents (Claude, GPT, Gemini, etc.):
+  - Five-step mandatory initialization sequence (`agent-startup.md`)
+  - Hard-fail behavior on compliance/configuration errors
+  - Structured initialization workflow (locate config → run compliance → load settings → emit event → announce capabilities)
+  - Pre-interaction hook enforcement (`pre-interaction.hook.js`) — prevents user interaction before startup completion
+
+- **📋 AI Agent Guide** — Comprehensive best practices and integration patterns:
+  - Core rules (non-negotiable security constraints)
+  - Authorization level reference (Observer L1, Executor L2, Orchestrator L3)
+  - Skill usage examples (code-analysis, security-audit, refactor)
+  - Common error scenarios and troubleshooting
+  - Integration patterns (Analysis → Report, Analysis → Refactor → Review, etc.)
+
+- **🔒 Security Enhancements**:
+  - Startup verification hooks prevent uninitialized agents from executing skills
+  - Configuration discovery with search paths (./agent.yaml → ../agent.yaml → ../../agent.yaml)
+  - Compliance check JSON output format for structured AI agent verification
+  - Updated `AGENT_CONTRACT.md` Section 9 (AI Agent Initialization Protocol)
+
+### Changed
+
+- **manifest.json schema**: Added `startup_sequence` definition with 6-step mandatory sequence
+- **settings.json schema**: Added `ai_agent_discovery` configuration with search paths and error handling
+- **hooks/skill-lifecycle.hook.js**: Added pre-skill startup verification for AI agents
+- **helpers/compliance-check.js**: Added `--json` flag for structured AI agent output (status, timestamp, agent_id, authorization_level, checks_passed/failed)
+- **README.md**: New "For AI Agents" section with startup protocol and authorization reference
+
+### Technical Details
+
+- New file: `.agents/hooks/pre-interaction.hook.js` (4.5 KB) — startup verification hook
+- New file: `.agents/agent-startup.md` (8.6 KB) — mandatory initialization guide
+- New file: `.agents/AI_AGENT_GUIDE.md` (16 KB) — best practices and troubleshooting
+- Updated: `AGENT_CONTRACT.md` with Section 9 (AI Agent Initialization Protocol)
+- Updated: `manifest.json` with `startup_sequence` schema and `pre-interaction` hook definition
+- Updated: `settings.json` with `ai_agent_discovery` configuration
+- Enhanced: `compliance-check.js` with `--json` output support
+- Enhanced: `skill-lifecycle.hook.js` with AI agent startup checks
+
+### Testing
+
+✅ All scenarios tested in real project setup:
+- Setup installation (bash setup-agents.sh in examples/simple-js-app)
+- Compliance check verification (exit code 0)
+- JSON output format validation (status, timestamp, agent_id, role, authorization_level)
+- Pre-interaction hook enforcement (file present and executable)
+- Manifest schema validation (startup_sequence and pre-interaction hook definitions)
+- Settings schema validation (ai_agent_discovery configuration)
+
+### Migration Guide
+
+For existing projects, no action needed — all changes are backward compatible.
+
+To enable AI Agent Startup Protocol in existing projects:
+```bash
+# Re-run setup to get new files
+bash setup-agents.sh /path/to/project --agent observer --force
+# or
+npm run setup
+```
+
+---
+
 ## [2.1.0] — 2026-04-06
 
 ### Added
