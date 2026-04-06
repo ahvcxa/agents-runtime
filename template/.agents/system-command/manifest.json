@@ -1,0 +1,157 @@
+{
+  "id": "system-command",
+  "version": "1.0.0",
+  "name": "System Command",
+  "description": "Execute shell commands safely with whitelist protection, no shell interpolation, timeout, and stderr capture",
+  "authorization_required_level": 2,
+  "input": {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "description": "Command to execute (must be in whitelist). Max 1024 chars."
+      },
+      "args": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Command arguments (passed safely without shell interpolation). Max 32KB total.",
+        "default": []
+      },
+      "cwd": {
+        "type": "string",
+        "description": "Working directory for command execution"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 60000,
+        "minimum": 100,
+        "maximum": 600000,
+        "description": "Timeout in milliseconds (100ms - 10min). Default: 60s"
+      },
+      "env": {
+        "type": "object",
+        "description": "Environment variables (merged with process.env). Sensitive vars auto-masked.",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": ["command"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "true if exit code is 0"
+      },
+      "data": {
+        "type": "object",
+        "properties": {
+          "stdout": {
+            "type": "string",
+            "description": "Standard output (limited to 2MB)"
+          },
+          "stderr": {
+            "type": "string",
+            "description": "Standard error output (limited to 2MB)"
+          },
+          "exitCode": {
+            "type": "integer",
+            "description": "Process exit code"
+          },
+          "signal": {
+            "type": ["string", "null"],
+            "description": "Kill signal if process was terminated"
+          }
+        }
+      },
+      "error": {
+        "type": ["object", "null"]
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "executionTime": { "type": "number" },
+          "timestamp": { "type": "string" },
+          "command": { "type": "string" },
+          "outputSize": { "type": "number" }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "List Directory",
+      "input": {
+        "command": "node",
+        "args": ["-v"]
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "stdout": "v18.12.0\n",
+          "stderr": "",
+          "exitCode": 0
+        },
+        "error": null,
+        "metadata": {
+          "executionTime": 45,
+          "timestamp": "2026-04-07T...",
+          "command": "node",
+          "outputSize": 10
+        }
+      }
+    },
+    {
+      "name": "npm Install",
+      "input": {
+        "command": "npm",
+        "args": ["install", "--save", "express"]
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "stdout": "added 1 package...",
+          "stderr": "",
+          "exitCode": 0
+        },
+        "error": null,
+        "metadata": {
+          "executionTime": 5000,
+          "timestamp": "2026-04-07T...",
+          "command": "npm"
+        }
+      }
+    },
+    {
+      "name": "Command Not Allowed",
+      "input": {
+        "command": "rm",
+        "args": ["-rf", "/"]
+      },
+      "output": {
+        "success": false,
+        "data": null,
+        "error": {
+          "code": "COMMAND_NOT_ALLOWED",
+          "message": "Command 'rm' is not in whitelist"
+        },
+        "metadata": {
+          "executionTime": 1,
+          "timestamp": "2026-04-07T..."
+        }
+      }
+    }
+  ],
+  "security_notes": [
+    "WHITELIST ONLY: Command must be in whitelist (node, npm, git, curl, jq, etc.)",
+    "NO SHELL INTERPOLATION: Arguments passed as array, not string. Prevents injection.",
+    "TIMEOUT PROTECTION: All commands timeout after 60s (configurable). No hanging processes.",
+    "OUTPUT LIMITS: Max 2MB stdout/stderr each. Prevents memory exhaustion.",
+    "STDERR CAPTURE: Errors captured separately from stdout.",
+    "AUTHORIZATION: Requires agent authorization level ≥ 2 (admin only).",
+    "ENVIRONMENT: Sensitive env vars (API keys, passwords) are auto-masked in logs."
+  ]
+}

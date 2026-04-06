@@ -1,0 +1,159 @@
+{
+  "id": "file-operations",
+  "version": "1.0.0",
+  "name": "File Operations",
+  "description": "Read, write, append, delete files with sandbox mode. All operations restricted to /.agents/workspace/ directory.",
+  "authorization_required_level": 1,
+  "input": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": ["read", "write", "append", "delete", "exists", "list"],
+        "description": "Operation type"
+      },
+      "path": {
+        "type": "string",
+        "description": "File or directory path (relative to /.agents/workspace/). Max 260 chars. Path traversal (../) blocked."
+      },
+      "content": {
+        "type": "string",
+        "description": "File content (write/append operations only). Max 10MB."
+      },
+      "encoding": {
+        "type": "string",
+        "default": "utf-8",
+        "enum": ["utf-8", "ascii", "base64"],
+        "description": "File encoding for read operations"
+      },
+      "createDirs": {
+        "type": "boolean",
+        "default": false,
+        "description": "Create parent directories if they don't exist (write/append only)"
+      }
+    },
+    "required": ["operation", "path"],
+    "additionalProperties": false
+  },
+  "output": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "data": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "content": { "type": "string" },
+              "size": { "type": "integer" },
+              "created": { "type": "string" },
+              "modified": { "type": "string" }
+            },
+            "description": "Result of read operation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "size": { "type": "integer" }
+            },
+            "description": "Result of write/append operation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "exists": { "type": "boolean" }
+            },
+            "description": "Result of exists operation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "files": { "type": "array" },
+              "directories": { "type": "array" },
+              "count": { "type": "integer" }
+            },
+            "description": "Result of list operation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deleted": { "type": "boolean" }
+            },
+            "description": "Result of delete operation"
+          }
+        ]
+      },
+      "error": {
+        "type": ["object", "null"]
+      },
+      "metadata": {
+        "type": "object"
+      }
+    }
+  },
+  "examples": [
+    {
+      "name": "Read File",
+      "input": {
+        "operation": "read",
+        "path": "data.json"
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "content": "{\"key\": \"value\"}",
+          "size": 18,
+          "created": "2026-04-06T...",
+          "modified": "2026-04-07T..."
+        },
+        "error": null,
+        "metadata": { "executionTime": 5 }
+      }
+    },
+    {
+      "name": "Write File",
+      "input": {
+        "operation": "write",
+        "path": "output.txt",
+        "content": "Hello, World!"
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "path": "output.txt",
+          "size": 13
+        },
+        "error": null,
+        "metadata": { "executionTime": 3 }
+      }
+    },
+    {
+      "name": "List Directory",
+      "input": {
+        "operation": "list",
+        "path": "."
+      },
+      "output": {
+        "success": true,
+        "data": {
+          "files": ["data.json", "output.txt"],
+          "directories": ["logs"],
+          "count": 3
+        },
+        "error": null,
+        "metadata": { "executionTime": 4 }
+      }
+    }
+  ],
+  "security_notes": [
+    "SANDBOX MODE: All operations restricted to /.agents/workspace/ directory",
+    "PATH TRAVERSAL PREVENTION: Paths with ../ are blocked",
+    "BLOCKED FILES: .env, .git, node_modules, *.key, *.pem are not accessible",
+    "SIZE LIMIT: Maximum 10MB per file",
+    "NO SYMLINKS: Symbolic links are not followed",
+    "PERMISSIONS: Files created with mode 0644 (readable by all, writable by owner only)"
+  ]
+}
