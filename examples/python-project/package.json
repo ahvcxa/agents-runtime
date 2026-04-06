@@ -1,0 +1,13 @@
+{
+  "name": "python-project-example",
+  "version": "1.0.0",
+  "description": "Example Python project for agents-runtime",
+  "scripts": {
+    "setup": "node ../../bin/setup-interactive.js",
+    "analyze": "node ../../bin/agents.js analyze app/",
+    "audit": "node ../../bin/agents.js audit app/",
+    "check": "node ../../bin/agents.js check"
+  },
+  "author": "agents-runtime",
+  "license": "MIT"
+}

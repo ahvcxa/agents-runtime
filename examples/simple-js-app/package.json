@@ -1,0 +1,19 @@
+{
+  "name": "simple-js-app-example",
+  "version": "1.0.0",
+  "description": "Example JavaScript project for agents-runtime",
+  "main": "src/index.js",
+  "scripts": {
+    "setup": "node ../../bin/setup-interactive.js",
+    "analyze": "node ../../bin/agents.js analyze src/",
+    "audit": "node ../../bin/agents.js audit src/ package.json",
+    "check": "node ../../bin/agents.js check"
+  },
+  "keywords": [
+    "agents-runtime",
+    "example",
+    "javascript"
+  ],
+  "author": "agents-runtime",
+  "license": "MIT"
+}
