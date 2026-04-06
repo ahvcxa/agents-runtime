@@ -8,6 +8,7 @@ dist/
 *.jsonl
 
 # Agent logs & memory store
+.agents/
 .agents/logs/
 .agents/.memory-store
 .agents/runs/
