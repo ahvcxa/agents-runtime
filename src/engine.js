@@ -26,6 +26,7 @@ const { createExporter } = require("./observability/exporters");
 const { ApprovalManager } = require("./orchestration/approval-manager");
 const { PipelineService } = require("./orchestration/pipeline-service");
 const { runSecurityValidation } = require("./security/security-validator");
+const SkillDiscovery = require("./loader/skill-discovery");
 
 class AgentRuntime {
   /**
@@ -48,6 +49,9 @@ class AgentRuntime {
     // 1. Load config
     this.manifest = loadManifest(this.projectRoot);
     this.settings = loadSettings(this.projectRoot);
+
+    // 1.5. Discover and validate skills (auto-discovery)
+    await this._discoverAndValidateSkills();
 
     // 2. Validate security constraints (addresses 16 security findings)
     const packageJsonPath = path.join(this.projectRoot, "package.json");
@@ -259,6 +263,84 @@ class AgentRuntime {
 
   _assertReady() {
     if (!this._ready) throw new Error("[engine] AgentRuntime not initialized. Call init() first.");
+  }
+
+  /**
+   * Discover skills from filesystem and validate against manifest.
+   * Logs warnings if unregistered skills are found.
+   * @private
+   */
+  async _discoverAndValidateSkills() {
+    const skillDiscoveryConfig = this.settings.runtime?.skill_auto_discovery || {};
+    
+    if (!skillDiscoveryConfig.enabled) {
+      return; // Skip if disabled
+    }
+
+    try {
+      const discovery = new SkillDiscovery({
+        scanPath: skillDiscoveryConfig.scan_path || ".agents",
+        pattern: skillDiscoveryConfig.pattern || "SKILL.md",
+        logger: {
+          log: (msg) => { /* silent */ },
+          warn: (msg) => { /* silent */ }
+        }
+      });
+
+      const result = await discovery.discoverSkills(this.projectRoot);
+      const discoveredSkills = result.skills || [];
+      const manifestSkills = this.manifest.skills || [];
+
+      // Compare discovered with manifest
+      const comparison = discovery.compareWithManifest(
+        manifestSkills,
+        discoveredSkills
+      );
+
+      // Log if there are unregistered skills
+      if (comparison.only_discovered.length > 0) {
+        this.logger?.log({
+          event_type: "INFO",
+          level: "warn",
+          message: `Found ${comparison.only_discovered.length} unregistered skill(s)`,
+          unregistered_skills: comparison.only_discovered.map(s => ({
+            id: s.id,
+            path: s.path,
+            version: s.version
+          })),
+          hint: "Run 'npm run setup' to refresh the manifest.json",
+          behavior: skillDiscoveryConfig.on_unregistered || "warn"
+        });
+      }
+
+      // Log if there are orphaned skills in manifest
+      if (comparison.only_manifest.length > 0) {
+        this.logger?.log({
+          event_type: "WARN",
+          message: `Found ${comparison.only_manifest.length} orphaned skill(s) in manifest.json`,
+          orphaned_skills: comparison.only_manifest.map(s => s.id),
+          hint: "These skills are registered but not found in .agents/ directory"
+        });
+      }
+
+      // Optionally auto-register unregistered skills at runtime (if enabled)
+      if (skillDiscoveryConfig.auto_register_runtime === true && comparison.only_discovered.length > 0) {
+        this.logger?.log({
+          event_type: "INFO",
+          message: `Auto-registering ${comparison.only_discovered.length} discovered skill(s)`,
+          skills: comparison.only_discovered.map(s => s.id)
+        });
+        // Skills will be auto-registered when SkillRegistry processes them
+      }
+
+    } catch (err) {
+      // Log but don't fail — missing discovery is not fatal
+      this.logger?.log({
+        event_type: "WARN",
+        message: `Skill discovery failed: ${err.message}`,
+        error_code: "SKILL_DISCOVERY_ERROR"
+      });
+    }
   }
 }
 

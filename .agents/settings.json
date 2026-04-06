@@ -17,6 +17,15 @@
       "docker_cpus": "1",
       "docker_memory": "256m",
       "wasm_module_path": ""
+    },
+    "skill_auto_discovery": {
+      "enabled": true,
+      "description": "Autonomous skill discovery system. Scans .agents/ for SKILL.md files and validates against manifest.json.",
+      "scan_path": ".agents",
+      "pattern": "SKILL.md",
+      "auto_register_runtime": false,
+      "on_unregistered": "warn",
+      "documentation": ".agents/SKILL_DISCOVERY.md"
     }
   },
 

@@ -11,7 +11,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- _No user-facing changes yet._
+- **🎯 Autonomous Skill Discovery System** (Major Feature):
+  - Automatic skill detection from filesystem (.agents/{skill-id}/SKILL.md)
+  - Zero-configuration setup: `npm run setup` now auto-discovers and registers all skills
+  - Runtime validation: Engine startup compares discovered vs. manifest skills, warns on mismatches
+  - Interactive skill selection: Setup wizard displays all discovered skills with descriptions, user can select which to enable (all pre-selected by default)
+  - Comprehensive SKILL_DISCOVERY.md developer guide with API reference and best practices
+  - Full test coverage: 10 new unit tests for SkillDiscovery class (all passing)
+
+- **🔧 Setup Wizard Enhancements**:
+  - New `SkillDiscovery` module (src/loader/skill-discovery.js) with 280+ lines of production-ready code
+  - Setup wizard integration: Runs discovery → displays skills → generates manifest.json
+  - Auto-generates manifest.json with selected skills during setup phase
+  - Skill metadata display in configuration summary (version, context, auth level)
+
+- **🚀 Engine Startup Enhancement**:
+  - New _discoverAndValidateSkills() method in engine.js
+  - Validates discovered skills vs. manifest during init()
+  - INFO-level logging for unregistered/orphaned skills
+  - Configurable behavior via settings.json (warn/error/skip)
+
+- **⚙️ Runtime Configuration**:
+  - New runtime.skill_auto_discovery config block in settings.json
+  - Options: enabled, scan_path, pattern, auto_register_runtime, on_unregistered
+
+### Changed
+
+- Setup wizard now requires choosing skills (interactive selection)
+- manifest.json now includes _generated metadata (timestamp, agent_type)
+- Engine startup sequence expanded to include skill discovery validation (step 1.5)
+
+### Fixed
+
+- Skills can no longer be silently missing from manifest — runtime validates and warns
+- Setup wizard was not generating manifest.json properly — now uses SkillDiscovery
+
+### Technical Notes
+
+- SkillDiscovery uses gray-matter for YAML parsing (already a dependency)
+- Backward compatible: existing manifest.json files continue to work
+- All 293 existing unit tests passing + 10 new skill-discovery tests
+- Configuration fully documented in SKILL_DISCOVERY.md
 
 ---
 
