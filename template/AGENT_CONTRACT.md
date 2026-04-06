@@ -217,4 +217,131 @@ At startup, every agent MUST run `.agents/helpers/compliance-check.js`, which va
 
 ---
 
-*Schema version: 1.0.0 · Vendor-neutral · Compatible with any agent runtime*
+## 9. AI Agent Initialization Protocol (MANDATORY for AI-based agents)
+
+> **Scope:** This section applies exclusively to AI agents (Claude, GPT, Gemini, etc.)
+> that operate autonomously within this runtime.
+>
+> Human users and CI/CD pipelines follow different initialization paths.
+
+### 9.1 Five-Step Mandatory Initialization
+
+Every AI agent MUST complete the following sequence BEFORE engaging with users:
+
+**Step 1: Locate Configuration**
+- Search for `agent.yaml` in: `./` → `../` → `../../`
+- If not found → **HALT with error**, exit code 1
+- Parse YAML → extract `id`, `role`, `authorization_level`, `skill_set`
+
+**Step 2: Run Compliance Check**
+- Execute: `node .agents/helpers/compliance-check.js --agent-config ./agent.yaml`
+- Expected exit code: `0` (success) or `1` (failure)
+- If fails → **HALT with detailed error output**
+- Validate:
+  - Agent identity declaration is complete
+  - Authorization level is valid (1, 2, or 3)
+  - Declared skills exist in registry
+  - Read paths don't violate forbidden patterns
+
+**Step 3: Load Settings & Initialize Memory**
+- Parse `.agents/settings.json`
+- Initialize memory backend (in-process by default)
+- Load `ai_agent_discovery` configuration
+- Load security rules and logging configuration
+
+**Step 4: Emit `AGENT_INITIALIZED` Event**
+- Log structured event: `{ event_type: "AGENT_INITIALIZED", agent_id, authorization_level, timestamp }`
+- Update internal state: `agent_initialized = true`
+
+**Step 5: Announce Capabilities**
+- Print startup banner with:
+  - Agent ID and role
+  - Authorization level and what it means
+  - Available skills
+  - Any startup warnings
+
+### 9.2 Hard-Fail Behavior
+
+If **ANY** step fails:
+
+1. **Stop immediately** — Do not proceed to user interaction
+2. **Report error** — Print full details with debugging hints
+3. **Emit event** — Log `SECURITY_VIOLATION` or `STARTUP_FAILURE`
+4. **Exit code 1** — Non-zero exit code
+
+| Scenario | Action |
+|----------|--------|
+| `agent.yaml` not found | HALT + "Config file not found in search paths" |
+| Compliance check fails | HALT + Show all failed checks with details |
+| Forbidden path in read_paths | HALT + "Security: forbidden pattern in paths" |
+| Memory backend unreachable | HALT + "Backend configuration error" |
+
+### 9.3 Configuration Discovery
+
+Search paths for `agent.yaml`:
+
+```json
+{
+  "search_paths": [
+    "./agent.yaml",      // Current directory
+    "../agent.yaml",     // Parent directory
+    "../../agent.yaml"   // Grandparent directory
+  ],
+  "error_if_not_found": true,
+  "startup_timeout_seconds": 30
+}
+```
+
+If `error_if_not_found: true` and file is not found → agent MUST emit error and HALT.
+
+### 9.4 Pre-Interaction Hook
+
+Before responding to any user input, the `pre-interaction.hook.js` hook verifies:
+
+```javascript
+if (!context.initialized) {
+  throw Error("Agent not initialized. Startup protocol must complete first.");
+}
+```
+
+This is **non-bypassable**. No user interaction is allowed until startup completes.
+
+### 9.5 Expected Capabilities After Init
+
+After successful startup, agent can announce:
+
+```
+Role: Observer (Level 1)
+├─ Read files: YES
+├─ Write files: NO
+├─ Read memory: YES
+├─ Write memory: NO
+└─ Spawn sub-agents: NO
+
+Role: Executor (Level 2)
+├─ Read files: YES
+├─ Write files: YES
+├─ Read memory: YES
+├─ Write memory: YES
+└─ Spawn sub-agents: NO
+
+Role: Orchestrator (Level 3)
+├─ Read files: YES
+├─ Write files: YES
+├─ Read memory: YES
+├─ Write memory: YES
+├─ Spawn sub-agents: YES
+├─ Approve network calls: YES
+└─ Modify pipeline checkpoints: YES
+```
+
+### 9.6 Documentation & References
+
+- **Startup protocol:** `.agents/agent-startup.md`
+- **Best practices:** `.agents/AI_AGENT_GUIDE.md`
+- **Configuration:** `agent.yaml` (project root)
+- **Compliance checks:** `.agents/helpers/compliance-check.js`
+
+---
+
+*Schema version: 1.0.0 · Vendor-neutral · Mandatory for AI agents*

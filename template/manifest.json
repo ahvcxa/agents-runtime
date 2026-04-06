@@ -5,7 +5,24 @@
 
   "entry_points": {
     "contract":  ".agents/AGENT_CONTRACT.md",
-    "settings":  ".agents/settings.json"
+    "settings":  ".agents/settings.json",
+    "ai_agent_startup": ".agents/agent-startup.md",
+    "ai_agent_guide": ".agents/AI_AGENT_GUIDE.md"
+  },
+
+  "startup_sequence": {
+    "description": "Mandatory initialization sequence for AI agents. MUST complete before user interaction.",
+    "required_for_ai_agents": true,
+    "sequence": [
+      "locate_agent_config",
+      "parse_agent_yaml",
+      "run_compliance_check",
+      "load_settings_json",
+      "initialize_memory",
+      "emit_agent_initialized_event"
+    ],
+    "error_behavior": "hard-fail",
+    "documentation": ".agents/agent-startup.md"
   },
 
   "suppression_syntax": "// agent-suppress: <suppression_key> reason=\"<justification>\"",
@@ -41,6 +58,15 @@
       "fires":       "after_skill_execution",
       "description": "Lock release, result caching, SKILL_END event emission, output domain event dispatch.",
       "required":    true
+    },
+    {
+      "id":          "pre-interaction",
+      "path":        ".agents/hooks/pre-interaction.hook.js",
+      "export":      "preInteractionHook",
+      "fires":       "before_agent_responds_to_user",
+      "description": "Verifies agent has completed initialization. Validates startup compliance. AI agents ONLY.",
+      "required":    true,
+      "ai_agents_only": true
     }
   ],
 

@@ -22,6 +22,16 @@
 async function preSkillHook(context) {
   const { agent_id, skill_id, auth_level, skill_manifest, input, memory, settings, log } = context;
 
+  // 0. AI Agent startup verification (MANDATORY for AI agents)
+  // This check ensures AI agents have completed the mandatory startup protocol
+  // before executing any skills.
+  if (context.is_ai_agent && !context.agent_initialized) {
+    throw new Error(
+      `[pre-skill] Agent '${agent_id}' is an AI agent but has not completed the startup protocol. ` +
+      `See .agents/agent-startup.md for mandatory initialization steps.`
+    );
+  }
+
   // 1. Verify skill exists in registry
   if (!skill_manifest) {
     throw new Error(`[pre-skill] Skill '${skill_id}' not found in registry at '${settings.skills.registry_path}'`);
