@@ -145,6 +145,61 @@ node bin/agents.js run \
 
 ---
 
+## 🤖 For AI Agents (Claude, GPT, Cursor, Windsurf, etc.)
+
+If you're an **AI agent** (LLM-based) using this runtime:
+
+### Startup Protocol (REQUIRED)
+
+Before processing any user request, you **MUST** follow these steps:
+
+1. **Read the initialization guide:** `.agents/agent-startup.md`
+2. **Verify your configuration:** Check `agent.yaml` exists in project root
+3. **Run compliance check:**
+   ```bash
+   node .agents/helpers/compliance-check.js --agent-config ./agent.yaml
+   ```
+   - Expected output: JSON with `status: "PASSED"`
+   - Exit code must be `0`
+   - If fails → HALT and report errors to user
+
+4. **Announce your capabilities** to the user:
+   ```
+   ✓ Agent initialized as: orchestrator-01 (Orchestrator, Level 3)
+   ✓ Available skills: code-analysis, security-audit, refactor
+   ✓ Capabilities: Read & Write files, spawn sub-agents, approve network calls
+   ```
+
+5. **Then process user requests** — Now you're ready for interaction
+
+### Quick Authorization Reference
+
+| Your Role | Read Files | Write Files | Run Refactor | Spawn Agents |
+|-----------|-----------|------------|-------------|------------|
+| **Observer** (L1) | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **Executor** (L2) | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No |
+| **Orchestrator** (L3) | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+
+Your role is defined in `agent.yaml`.
+
+### Important Rules
+
+- ❌ **DO NOT** try to read `.env`, `secrets/`, or `*.pem` files — they're blocked
+- ❌ **DO NOT** skip the startup protocol — initialization is mandatory
+- ❌ **DO NOT** try to bypass security hooks — they're framework-enforced
+- ✅ **DO** respect your authorization level — it determines what you can do
+- ✅ **DO** follow the five-step startup sequence in `.agents/agent-startup.md`
+- ✅ **DO** listen to SECURITY_VIOLATION events — they mean something is forbidden
+
+### Documentation
+
+- **Startup protocol:** `.agents/agent-startup.md` (MANDATORY READ)
+- **Best practices:** `.agents/AI_AGENT_GUIDE.md` (examples + patterns)
+- **Behavioral contract:** `.agents/AGENT_CONTRACT.md` (rules + constraints)
+- **Configuration:** `agent.yaml` (your agent identity)
+
+---
+
 ## 📁 Repository Structure
 
 ```
