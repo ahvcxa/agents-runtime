@@ -21,6 +21,7 @@ const fs = require("fs");
 const path = require("path");
 const readline = require("readline");
 const { execSync } = require("child_process");
+const SkillDiscovery = require("../src/loader/skill-discovery");
 
 // Color codes
 const colors = {
@@ -151,6 +152,70 @@ async function main() {
 
   log(`  ✓ Selected: ${ciIntegration}\n`, "green");
 
+  // Step 6: Skill discovery and selection
+  logSection("Discovering Skills");
+  
+  let discoveredSkills = [];
+  let skillDiscoveryErrors = [];
+  
+  try {
+    const discovery = new SkillDiscovery({
+      scanPath: ".agents",
+      pattern: "SKILL.md",
+      logger: { 
+        log: (msg) => log(`  ${msg}`, "gray"),
+        warn: (msg) => log(`  ⚠ ${msg}`, "yellow")
+      }
+    });
+    
+    const runtimeDir = path.resolve(__dirname, "..");
+    const result = await discovery.discoverSkills(runtimeDir);
+    discoveredSkills = result.skills;
+    skillDiscoveryErrors = result.errors;
+    
+    if (discoveredSkills.length === 0) {
+      log(`  ⚠ No skills discovered. This may indicate a problem.\n`, "yellow");
+    } else {
+      log(`  ✓ Discovered ${discoveredSkills.length} skill(s)\n`, "green");
+    }
+  } catch (err) {
+    log(`  ✗ Skill discovery failed: ${err.message}\n`, "red");
+    log(`  Using default skills instead.\n`, "yellow");
+  }
+
+  // Step 7: Select which skills to enable
+  let selectedSkills = discoveredSkills;
+  
+  if (discoveredSkills.length > 0) {
+    log(`Available skills:`, "blue");
+    discoveredSkills.forEach((skill, idx) => {
+      const readOnlyLabel = skill.read_only ? "(read-only)" : "(read+write)";
+      log(
+        `  ${idx + 1}. ${skill.id.padEnd(20)} v${skill.version} ${readOnlyLabel}`,
+        "gray"
+      );
+      if (skill.description) {
+        log(`     ${skill.description}`, "gray");
+      }
+    });
+    console.log("");
+    
+    const enableAll = await confirm("Enable all discovered skills?");
+    
+    if (!enableAll && discoveredSkills.length > 1) {
+      selectedSkills = [];
+      for (const skill of discoveredSkills) {
+        const enable = await confirm(`  Enable ${skill.id}?`);
+        if (enable) {
+          selectedSkills.push(skill);
+        }
+      }
+      console.log("");
+    }
+    
+    log(`  ✓ Selected ${selectedSkills.length} skill(s) to enable\n`, "green");
+  }
+
   // Show summary
   console.log("");
   log("╔═══════════════════════════════════════════════════════╗", "bright");
@@ -161,6 +226,12 @@ async function main() {
   log(`  Python Support:   ${pythonSupport ? "✓ Yes" : "✗ No"}`, "gray");
   log(`  Memory Backend:   ${memoryBackend}`, "gray");
   log(`  CI/CD:            ${ciIntegration}`, "gray");
+  log(`  Skills Enabled:   ${selectedSkills.length} skill(s)`, "gray");
+  if (selectedSkills.length > 0) {
+    selectedSkills.forEach(skill => {
+      log(`    - ${skill.id} (v${skill.version})`, "gray");
+    });
+  }
   console.log("");
 
   const proceed = await confirm("Proceed with setup?");
@@ -200,6 +271,14 @@ async function main() {
     execSync(cmd, { stdio: "inherit" });
 
     log("\n✓ Setup script completed!\n", "green");
+
+    // Generate manifest.json with selected skills
+    if (selectedSkills.length > 0) {
+      generateManifestJson(projectDir, selectedSkills, {
+        agentType,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Create .agents/QUICK_START.md
     createQuickStartGuide(projectDir, {
@@ -247,6 +326,72 @@ async function main() {
   }
 
   rl.close();
+}
+
+/**
+ * Generate manifest.json with discovered and selected skills
+ */
+function generateManifestJson(projectDir, selectedSkills, config) {
+  const agentsDir = path.join(projectDir, ".agents");
+  const manifestPath = path.join(agentsDir, "manifest.json");
+
+  // Build skills array for manifest
+  const skillsForManifest = selectedSkills.map(skill => ({
+    id: skill.id,
+    path: skill.path,
+    version: skill.version,
+    authorization_required_level: skill.authorization_required_level,
+    bounded_context: skill.bounded_context,
+    read_only: skill.read_only,
+    ...(skill.description && { description: skill.description }),
+    ...(skill.aggregate_root && { aggregate_root: skill.aggregate_root }),
+    ...(skill.handler && { handler: skill.handler }),
+    ...(skill.output_event && { output_event: skill.output_event }),
+  }));
+
+  try {
+    // Load existing manifest if it exists
+    let manifest = {};
+    if (fs.existsSync(manifestPath)) {
+      const existing = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      manifest = existing;
+    }
+
+    // Update skills array
+    manifest.skills = skillsForManifest;
+    
+    // Add metadata if not present
+    if (!manifest.$schema) {
+      manifest.$schema = "https://json-schema.org/draft/2020-12/schema";
+      manifest.spec_version = "1.0.0";
+      manifest.description =
+        "Agent configuration manifest with auto-discovered skills";
+    }
+
+    // Add generation metadata
+    manifest._generated = {
+      timestamp: config.timestamp,
+      agent_type: config.agentType,
+      by: "setup-interactive.js",
+    };
+
+    // Write manifest
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify(manifest, null, 2) + "\n",
+      "utf8"
+    );
+
+    log(
+      `  ✓ Generated manifest.json with ${skillsForManifest.length} skill(s)`,
+      "green"
+    );
+  } catch (err) {
+    log(
+      `  ⚠ Warning: Could not generate manifest.json: ${err.message}`,
+      "yellow"
+    );
+  }
 }
 
 /**
