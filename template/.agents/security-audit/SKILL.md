@@ -7,7 +7,7 @@ aggregate_root: CodeUnit
 output_event: SecurityAuditCompleted
 output_schema: Finding[]
 read_only: true
-handler: .agents/skills/security-audit/handler.js
+handler: .agents/security-audit/handler.js
 ---
 
 

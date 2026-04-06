@@ -11,7 +11,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execute } = require("../.agents/skills/security-audit/handler");
+const { execute } = require("../.agents/security-audit/handler");
 
 describe("Security Audit - False Positive Fixes", () => {
   

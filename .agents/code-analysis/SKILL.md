@@ -7,7 +7,7 @@ aggregate_root: CodeUnit
 output_event: AnalysisCompleted
 output_schema: Finding[]
 read_only: true
-handler: .agents/skills/code-analysis/handler.js
+handler: .agents/code-analysis/handler.js
 ---
 
 
