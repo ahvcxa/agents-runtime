@@ -8,10 +8,10 @@
  * Tests pattern detection, suppression, and false positive handling.
  */
 
-const rules = require("../template/skills/security-audit/lib/rules");
-const analyzer = require("../template/skills/security-audit/lib/analyzer");
-const { SuppressionEngine } = require("../template/skills/security-audit/lib/suppression");
-const { ReportGenerator } = require("../template/skills/security-audit/lib/report");
+const rules = require("../.agents/skills/security-audit/lib/rules");
+const analyzer = require("../.agents/skills/security-audit/lib/analyzer");
+const { SuppressionEngine } = require("../.agents/skills/security-audit/lib/suppression");
+const { ReportGenerator } = require("../.agents/skills/security-audit/lib/report");
 
 describe("Security Audit - Enterprise Grade (v2.0.0)", () => {
   

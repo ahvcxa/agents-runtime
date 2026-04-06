@@ -7,8 +7,6 @@
 
 const InProcessMemoryDriver = require("./in-process-driver");
 const FileMemoryDriver = require("./file-driver");
-const RedisMemoryDriver = require("./redis-driver");
-const PostgresMemoryDriver = require("./postgres-driver");
 const VectorMemoryDriver = require("./vector-driver");
 
 function createPersistenceAdapter(settings, agentId, projectRoot) {
@@ -16,8 +14,12 @@ function createPersistenceAdapter(settings, agentId, projectRoot) {
   const backend = (memory.backend ?? "in-process").toLowerCase();
   const persistence = memory.persistence ?? {};
 
-  if (backend === "redis") return new RedisMemoryDriver(memory.redis ?? {});
-  if (backend === "postgres" || backend === "postgresql") return new PostgresMemoryDriver(memory.postgres ?? {});
+  if (backend === "redis") {
+    throw new Error("Redis driver not yet implemented. Use in-process or file-based persistence.");
+  }
+  if (backend === "postgres" || backend === "postgresql") {
+    throw new Error("PostgreSQL driver not yet implemented. Use in-process or file-based persistence.");
+  }
   if (backend === "vector") return new VectorMemoryDriver(memory.vector ?? {});
   if (persistence.enabled) {
     return new FileMemoryDriver({
@@ -33,7 +35,5 @@ module.exports = {
   createPersistenceAdapter,
   InProcessMemoryDriver,
   FileMemoryDriver,
-  RedisMemoryDriver,
-  PostgresMemoryDriver,
   VectorMemoryDriver,
 };
