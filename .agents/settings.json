@@ -218,7 +218,7 @@
   },
 
   "skills": {
-    "registry_path": ".agents/skills/",
+    "registry_path": ".agents/",
     "auto_discover": true,
     "version_strategy": "semver",
     "conflict_resolution": "highest_compatible"
