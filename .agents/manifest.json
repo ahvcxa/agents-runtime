@@ -90,7 +90,7 @@
   "skills": [
     {
       "id":                      "http-request",
-      "path":                    ".agents/skills/http-request/SKILL.md",
+      "path":                    ".agents/http-request/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 0,
       "bounded_context":         "Integration",
@@ -99,7 +99,7 @@
     },
     {
       "id":                      "file-operations",
-      "path":                    ".agents/skills/file-operations/SKILL.md",
+      "path":                    ".agents/file-operations/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 1,
       "bounded_context":         "IO",
@@ -108,7 +108,7 @@
     },
     {
       "id":                      "system-command",
-      "path":                    ".agents/skills/system-command/SKILL.md",
+      "path":                    ".agents/system-command/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 2,
       "bounded_context":         "Execution",
@@ -117,7 +117,7 @@
     },
     {
       "id":                      "data-transform",
-      "path":                    ".agents/skills/data-transform/SKILL.md",
+      "path":                    ".agents/data-transform/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 0,
       "bounded_context":         "Transformation",
@@ -126,7 +126,7 @@
     },
     {
       "id":                      "logging",
-      "path":                    ".agents/skills/logging/SKILL.md",
+      "path":                    ".agents/logging/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 0,
       "bounded_context":         "Observability",
@@ -135,7 +135,7 @@
     },
     {
       "id":                      "code-analysis",
-      "path":                    ".agents/skills/code-analysis/SKILL.md",
+      "path":                    ".agents/code-analysis/SKILL.md",
       "version":                 "1.2.0",
       "authorization_required_level": 1,
       "bounded_context":         "Analysis",
@@ -145,7 +145,7 @@
     },
     {
       "id":                      "security-audit",
-      "path":                    ".agents/skills/security-audit/SKILL.md",
+      "path":                    ".agents/security-audit/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 1,
       "bounded_context":         "Analysis",
@@ -155,7 +155,7 @@
     },
     {
       "id":                      "refactor",
-      "path":                    ".agents/skills/refactor/SKILL.md",
+      "path":                    ".agents/refactor/SKILL.md",
       "version":                 "1.0.0",
       "authorization_required_level": 2,
       "bounded_context":         "Transformation",
