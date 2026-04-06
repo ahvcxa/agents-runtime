@@ -25,6 +25,59 @@ const { formatTerminal }   = require("../src/diff/diff-formatter");
 
 const program = new Command();
 
+// ─── Config Cache Management ───────────────────────────────────────────────────
+const CONFIG_CACHE_FILE = ".agents/agents.local.json";
+
+function saveConfigCache(root, config) {
+  const cacheFile = path.join(root, CONFIG_CACHE_FILE);
+  try {
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    fs.writeFileSync(cacheFile, JSON.stringify(config, null, 2));
+  } catch {
+    // Silently fail - cache is optional
+  }
+}
+
+function loadConfigCache(root) {
+  const cacheFile = path.join(root, CONFIG_CACHE_FILE);
+  try {
+    if (fs.existsSync(cacheFile)) {
+      return JSON.parse(fs.readFileSync(cacheFile, "utf8"));
+    }
+  } catch {
+    // Silently fail - cache is optional
+  }
+  return null;
+}
+
+// ─── Terminal Colors & Styling ────────────────────────────────────────────────
+const colors = {
+  reset: "\x1b[0m",
+  bright: "\x1b[1m",
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[36m",
+  gray: "\x1b[90m",
+  magenta: "\x1b[35m",
+};
+
+function logSuccess(msg) {
+  console.log(`${colors.green}✓${colors.reset} ${msg}`);
+}
+
+function logError(msg) {
+  console.log(`${colors.red}✗${colors.reset} ${msg}`);
+}
+
+function logInfo(msg) {
+  console.log(`${colors.blue}ⓘ${colors.reset} ${msg}`);
+}
+
+function logWarn(msg) {
+  console.log(`${colors.yellow}⚠${colors.reset} ${msg}`);
+}
+
 function sanitizeErrorMessage(err) {
   const raw = String(err?.message || "Unknown error");
   return raw.replace(/[\r\n\t]+/g, " ").slice(0, 500);
@@ -47,14 +100,22 @@ function logCliError(code, err, details = {}) {
 program
   .name("agents")
   .description("Vendor-neutral AI agent runtime CLI")
-  .version("2.0.0");
+  .version("2.0.0")
+  .hook("preAction", (thisCommand) => {
+    // Auto-save config to cache for future commands
+    if (thisCommand.opts().config) {
+      const root = projectRoot(thisCommand.opts());
+      const configPath = path.resolve(thisCommand.opts().config);
+      saveConfigCache(root, { config_path: configPath });
+    }
+  });
 
 // ─── Shared option ───────────────────────────────────────────────────────────
 function projectRoot(opts) {
   return path.resolve(opts.project ?? process.cwd());
 }
 
-function loadAgentConfig(configPath) {
+function loadAgentConfig(configPath, root) {
   const abs = path.resolve(configPath);
   if (!fs.existsSync(abs)) {
     logCliError("AGENT_CONFIG_NOT_FOUND", new Error(`Agent config not found: ${abs}`), { config_path: abs });
@@ -69,6 +130,32 @@ function loadAgentConfig(configPath) {
       process.exit(1);
     }
   }
+}
+
+/**
+ * Find agent.yaml or load from cache
+ */
+function findAgentConfig(root) {
+  // Try standard locations first
+  const candidates = [
+    path.join(root, "agent.yaml"),
+    path.join(root, "agent.yml"),
+    path.join(root, ".agents", "agent.yaml"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Try cache
+  const cached = loadConfigCache(root);
+  if (cached?.config_path && fs.existsSync(cached.config_path)) {
+    return cached.config_path;
+  }
+
+  return null;
 }
 
 // ─── agents run ──────────────────────────────────────────────────────────────
@@ -147,21 +234,229 @@ program
     }
   });
 
+// ─── agents analyze ──────────────────────────────────────────────────────────
+// Simplified command: agents analyze src/ [--config path] [--project dir]
+program
+  .command("analyze [paths...]")
+  .description("Quickly analyze code (simplified: agents analyze src/ tests/)")
+  .option("-c, --config <path>", "Path to agent config (auto-detected if omitted)")
+  .option("-p, --project <dir>", "Project root (default: cwd)")
+  .option("-e, --export <path>", "Export result to file (.json/.html/.pdf)")
+  .option("-v, --verbose",       "Verbose logging")
+  .option("--diff",              "Show diff vs. previous run")
+  .action(async (paths, opts) => {
+    const root = projectRoot(opts);
+    
+    if (!paths || paths.length === 0) {
+      logError("Please specify paths to analyze: agents analyze src/ tests/");
+      process.exit(1);
+    }
+
+    // Find config
+    let configPath = opts.config;
+    if (!configPath) {
+      configPath = findAgentConfig(root);
+      if (!configPath) {
+        logError("No agent config found. Run 'npm run setup' or specify with --config");
+        process.exit(1);
+      }
+      logInfo(`Using config: ${path.relative(root, configPath)}`);
+    }
+
+    const agentConfig = loadAgentConfig(configPath, root);
+
+    try {
+      const runtime = await createRuntime({
+        projectRoot: root,
+        verbosity: opts.verbose ? "verbose" : undefined,
+      });
+
+      const { success, result, duration_ms } = await runtime.runAgent(
+        agentConfig,
+        "code-analysis",
+        {
+          files: paths,
+          project_root: root,
+        }
+      );
+
+      console.log("");
+      if (success) {
+        logSuccess(`Analysis completed in ${duration_ms}ms`);
+        const findings = result?.findings || [];
+        console.log(`Found ${findings.length} findings:\n`);
+
+        // Group by severity
+        const bySeverity = {};
+        findings.forEach((f) => {
+          const sev = f.severity || "INFO";
+          if (!bySeverity[sev]) bySeverity[sev] = [];
+          bySeverity[sev].push(f);
+        });
+
+        const severityOrder = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
+        for (const severity of severityOrder) {
+          if (bySeverity[severity]) {
+            console.log(`${colors.bright}${severity}${colors.reset} (${bySeverity[severity].length})`);
+            bySeverity[severity].slice(0, 5).forEach((f) => {
+              console.log(`  ${colors.gray}${f.file}:${f.line_start}${colors.reset} — ${f.message}`);
+            });
+            if (bySeverity[severity].length > 5) {
+              console.log(`  ${colors.gray}... and ${bySeverity[severity].length - 5} more${colors.reset}`);
+            }
+          }
+        }
+      } else {
+        logError("Analysis failed");
+      }
+
+      if (opts.export) {
+        const inferred = (opts.export.split(".").pop() || "json").toLowerCase();
+        const format = opts.format ?? inferred;
+        const exportedPath = exportReport({
+          result: { success, result, duration_ms, skill: "code-analysis", project: root },
+          outputPath: opts.export,
+          format,
+        });
+        logSuccess(`Report exported: ${exportedPath}`);
+      }
+
+      await runtime.shutdown();
+      process.exit(success ? 0 : 1);
+    } catch (err) {
+      logCliError("ANALYZE_COMMAND_FAILED", err, { command: "analyze", paths });
+      process.exit(1);
+    }
+  });
+
+// ─── agents audit ────────────────────────────────────────────────────────────
+// Simplified command: agents audit src/ [--config path] [--project dir]
+program
+  .command("audit [paths...]")
+  .description("Quick security audit (simplified: agents audit src/ .env.example)")
+  .option("-c, --config <path>", "Path to agent config (auto-detected if omitted)")
+  .option("-p, --project <dir>", "Project root (default: cwd)")
+  .option("-e, --export <path>", "Export result to file")
+  .option("-v, --verbose",       "Verbose logging")
+  .action(async (paths, opts) => {
+    const root = projectRoot(opts);
+
+    if (!paths || paths.length === 0) {
+      logError("Please specify paths to audit: agents audit src/ .env.example");
+      process.exit(1);
+    }
+
+    // Find config
+    let configPath = opts.config;
+    if (!configPath) {
+      configPath = findAgentConfig(root);
+      if (!configPath) {
+        logError("No agent config found. Run 'npm run setup' or specify with --config");
+        process.exit(1);
+      }
+      logInfo(`Using config: ${path.relative(root, configPath)}`);
+    }
+
+    const agentConfig = loadAgentConfig(configPath, root);
+
+    try {
+      const runtime = await createRuntime({
+        projectRoot: root,
+        verbosity: opts.verbose ? "verbose" : undefined,
+      });
+
+      const { success, result, duration_ms } = await runtime.runAgent(
+        agentConfig,
+        "security-audit",
+        {
+          files: paths,
+          project_root: root,
+        }
+      );
+
+      console.log("");
+      if (success) {
+        logSuccess(`Security audit completed in ${duration_ms}ms`);
+        const findings = result?.findings || [];
+        console.log(`Found ${findings.length} security issues:\n`);
+
+        // Group by OWASP category
+        const byCategory = {};
+        findings.forEach((f) => {
+          const cat = f.owasp_category || "OTHER";
+          if (!byCategory[cat]) byCategory[cat] = [];
+          byCategory[cat].push(f);
+        });
+
+        Object.entries(byCategory)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([category, items]) => {
+            console.log(`${colors.bright}${category}${colors.reset} (${items.length})`);
+            items.slice(0, 3).forEach((f) => {
+              const sevColor =
+                f.severity === "CRITICAL"
+                  ? colors.red
+                  : f.severity === "HIGH"
+                  ? colors.yellow
+                  : colors.gray;
+              console.log(
+                `  ${sevColor}[${f.severity}]${colors.reset} ${f.file}:${f.line_start} — ${f.message}`
+              );
+            });
+            if (items.length > 3) {
+              console.log(`  ${colors.gray}... and ${items.length - 3} more${colors.reset}`);
+            }
+          });
+      } else {
+        logError("Security audit failed");
+      }
+
+      if (opts.export) {
+        const inferred = (opts.export.split(".").pop() || "json").toLowerCase();
+        const format = opts.format ?? inferred;
+        const exportedPath = exportReport({
+          result: { success, result, duration_ms, skill: "security-audit", project: root },
+          outputPath: opts.export,
+          format,
+        });
+        logSuccess(`Report exported: ${exportedPath}`);
+      }
+
+      await runtime.shutdown();
+      process.exit(success ? 0 : 1);
+    } catch (err) {
+      logCliError("AUDIT_COMMAND_FAILED", err, { command: "audit", paths });
+      process.exit(1);
+    }
+  });
+
 // ─── agents check ────────────────────────────────────────────────────────────
 program
   .command("check")
   .description("Run compliance check for an agent config (no skill execution)")
-  .requiredOption("-c, --config <path>", "Path to agent YAML/JSON config")
+  .option("-c, --config <path>", "Path to agent YAML/JSON config (auto-detected if omitted)")
   .option("-p, --project <dir>",  "Project root (default: cwd)")
   .action(async (opts) => {
     const root        = projectRoot(opts);
-    const agentConfig = loadAgentConfig(opts.config);
+
+    // Auto-detect config if not provided
+    let configPath = opts.config;
+    if (!configPath) {
+      configPath = findAgentConfig(root);
+      if (!configPath) {
+        logError("No agent config found. Run 'npm run setup' or specify with --config");
+        process.exit(1);
+      }
+      logInfo(`Using config: ${path.relative(root, configPath)}`);
+    }
+
+    const agentConfig = loadAgentConfig(configPath, root);
 
     try {
       const runtime = await createRuntime({ projectRoot: root });
       const runner  = runtime.runner;
       await runner._runComplianceCheck(agentConfig);
-      console.log("\x1b[32m✓ Compliance check passed.\x1b[0m");
+      logSuccess("Compliance check passed.");
       await runtime.shutdown();
       process.exit(0);
     } catch (err) {
