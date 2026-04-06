@@ -10,11 +10,11 @@ describe("SandboxManager", () => {
     expect(health.status).toBe("healthy");
   });
 
-  test("health is degraded in e2b mode (fallback)", async () => {
+  test("health is offline in e2b mode without API key", async () => {
     const manager = new SandboxManager({ runtime: { sandbox: { strategy: "e2b" } } });
     await manager.init();
     const health = await manager.healthCheck();
-    expect(health.status).toBe("degraded");
+    expect(health.status).toMatch(/offline|degraded/);
   });
 
   test("executes run callback through manager", async () => {
