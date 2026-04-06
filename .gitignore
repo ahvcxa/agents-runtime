@@ -7,6 +7,9 @@ coverage/
 dist/
 *.jsonl
 
+# User-created agent configuration (use examples/ for templates)
+agent.yaml
+
 # Agent logs & memory store
 .agents/
 .agents/logs/
