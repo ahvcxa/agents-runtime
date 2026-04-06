@@ -9,6 +9,14 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs");
 
+// Check if better-sqlite3 is available
+let betterSqliteAvailable = true;
+try {
+  require("better-sqlite3");
+} catch (err) {
+  betterSqliteAvailable = false;
+}
+
 describe("VectorMemoryDriver", () => {
   let driver;
   let testDbPath;
@@ -259,7 +267,8 @@ describe("VectorMemoryDriver", () => {
     });
   });
 
-  describe("persistence", () => {
+  const describePersistence = betterSqliteAvailable ? describe : describe.skip;
+  describePersistence("persistence", () => {
     it("should persist data across driver instances", async () => {
       await driver.store("persist:1", "persistent value");
       await driver.shutdown();
