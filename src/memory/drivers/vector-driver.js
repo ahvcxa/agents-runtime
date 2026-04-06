@@ -5,20 +5,28 @@
  * Production-grade vector memory driver with SQLite storage.
  *
  * Features:
- * - Persistent vector storage using SQLite
+ * - Persistent vector storage using SQLite (optional)
  * - Semantic similarity search with cosine distance
  * - In-memory vector index for fast retrieval
  * - Configurable embedding dimensions (default: 384)
  * - Automatic schema initialization
  * - TTL support for memory entries
  * - Thread-safe operations
+ * - Graceful fallback to in-memory only if SQLite unavailable
  */
 
-const Database = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
+
+// Try to load better-sqlite3, but don't fail if it's not available
+let Database;
+try {
+  Database = require("better-sqlite3");
+} catch (err) {
+  Database = null;
+}
 
 /**
  * Compute normalized word vectors using TF-IDF-like approach.
@@ -113,23 +121,37 @@ class VectorMemoryDriver {
    */
   constructor(opts = {}) {
     this.options = { dimensions: 384, maxVectors: 10000, ...opts };
+    this.sqliteAvailable = Database !== null;
 
-    const dbPath =
-      opts.inMemory === true
-        ? ":memory:"
-        : opts.dbPath || path.join(os.homedir(), ".cache", "agents-runtime", "vectors.db");
+    let dbPath;
+    if (!this.sqliteAvailable) {
+      // SQLite not available, use in-memory only
+      dbPath = null;
+      this.db = null;
+    } else {
+      dbPath =
+        opts.inMemory === true
+          ? ":memory:"
+          : opts.dbPath || path.join(os.homedir(), ".cache", "agents-runtime", "vectors.db");
 
-    // Ensure directory exists
-    if (!opts.inMemory) {
-      const dir = path.dirname(dbPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      // Ensure directory exists
+      if (!opts.inMemory) {
+        const dir = path.dirname(dbPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+      }
+
+      try {
+        this.db = new Database(dbPath);
+        this.db.pragma("journal_mode = WAL");
+        this.db.pragma("synchronous = NORMAL");
+      } catch (err) {
+        // SQLite initialization failed, fallback to in-memory
+        this.sqliteAvailable = false;
+        this.db = null;
       }
     }
-
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("synchronous = NORMAL");
 
     // In-memory index for fast lookup
     this.vectorIndex = new Map(); // key -> { vector, metadata }
@@ -141,6 +163,12 @@ class VectorMemoryDriver {
    */
   async init() {
     try {
+      // If SQLite not available, work with in-memory index only
+      if (!this.sqliteAvailable || !this.db) {
+        this.initialized = true;
+        return;
+      }
+
       // Create vectors table if not exists
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS vectors (
@@ -205,39 +233,43 @@ class VectorMemoryDriver {
         this.options.dimensions
       );
 
-      // Store vector as JSON string for reliable serialization
-      const vectorBlob = JSON.stringify(vector);
-      const nowMs = Date.now();
-      const nowSecs = Math.floor(nowMs / 1000);
-      const id = `${key}:${crypto.randomBytes(4).toString("hex")}`;
-
       const metadata = {
-        stored_at: nowMs,
+        stored_at: Date.now(),
         value_type: typeof value,
         ...(options.metadata || {}),
       };
 
-      this.db.prepare(`
-        INSERT INTO vectors (id, key, vector, metadata, dimensions, stored_at, ttl_seconds, accessed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        id,
-        key,
-        vectorBlob,
-        JSON.stringify(metadata),
-        this.options.dimensions,
-        nowSecs,
-        options.ttlSeconds || null,
-        nowSecs
-      );
-
-      // Update in-memory index
+      // Store in in-memory index always
       this.vectorIndex.set(key, { vector, metadata });
-
-      // Enforce max size
       if (this.vectorIndex.size > this.options.maxVectors) {
         const firstKey = this.vectorIndex.keys().next().value;
         this.vectorIndex.delete(firstKey);
+      }
+
+      // If SQLite available, also persist
+      if (this.sqliteAvailable && this.db) {
+        try {
+          const vectorBlob = JSON.stringify(vector);
+          const nowSecs = Math.floor(Date.now() / 1000);
+          const id = `${key}:${crypto.randomBytes(4).toString("hex")}`;
+
+          this.db.prepare(`
+            INSERT INTO vectors (id, key, vector, metadata, dimensions, stored_at, ttl_seconds, accessed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            id,
+            key,
+            vectorBlob,
+            JSON.stringify(metadata),
+            this.options.dimensions,
+            nowSecs,
+            options.ttlSeconds || null,
+            nowSecs
+          );
+        } catch (sqlErr) {
+          // SQLite error, but in-memory store succeeded
+          console.warn(`[VectorMemoryDriver] SQLite store failed: ${sqlErr.message}; using in-memory only`);
+        }
       }
     } catch (err) {
       throw new Error(`[VectorMemoryDriver] Store failed for key '${key}': ${err.message}`);
@@ -254,25 +286,40 @@ class VectorMemoryDriver {
     if (!this.initialized) await this.init();
 
     try {
-      const row = this.db.prepare(`
-        SELECT vector, metadata FROM vectors WHERE key = ?
-      `).get(key);
+      // Try in-memory first
+      if (this.vectorIndex.has(key)) {
+        return this.vectorIndex.get(key);
+      }
 
-      if (!row) return undefined;
+      // If SQLite available, check database
+      if (this.sqliteAvailable && this.db) {
+        try {
+          const row = this.db.prepare(`
+            SELECT vector, metadata FROM vectors WHERE key = ?
+          `).get(key);
 
-      // Update accessed_at timestamp
-      const nowSecs = Math.floor(Date.now() / 1000);
-      this.db.prepare("UPDATE vectors SET accessed_at = ? WHERE key = ?").run(nowSecs, key);
+          if (!row) return undefined;
 
-      // Parse vector from JSON
-      const vector = Array.isArray(row.vector)
-        ? row.vector
-        : JSON.parse(row.vector);
+          // Update accessed_at timestamp
+          const nowSecs = Math.floor(Date.now() / 1000);
+          this.db.prepare("UPDATE vectors SET accessed_at = ? WHERE key = ?").run(nowSecs, key);
 
-      return {
-        vector,
-        metadata: row.metadata ? JSON.parse(row.metadata) : {},
-      };
+          // Parse vector from JSON
+          const vector = Array.isArray(row.vector)
+            ? row.vector
+            : JSON.parse(row.vector);
+
+          return {
+            vector,
+            metadata: row.metadata ? JSON.parse(row.metadata) : {},
+          };
+        } catch (sqlErr) {
+          console.warn(`[VectorMemoryDriver] SQLite retrieve failed: ${sqlErr.message}`);
+          return undefined;
+        }
+      }
+
+      return undefined;
     } catch (err) {
       throw new Error(`[VectorMemoryDriver] Retrieve failed for key '${key}': ${err.message}`);
     }
@@ -330,18 +377,42 @@ class VectorMemoryDriver {
   async stats() {
     if (!this.initialized) await this.init();
 
-    const count = this.db.prepare("SELECT COUNT(*) as cnt FROM vectors").get();
-    const oldest = this.db.prepare("SELECT MIN(stored_at) as ts FROM vectors").get();
-    const newest = this.db.prepare("SELECT MAX(stored_at) as ts FROM vectors").get();
+    if (!this.sqliteAvailable || !this.db) {
+      // In-memory only
+      return {
+        total_vectors: this.vectorIndex.size,
+        in_memory_index_size: this.vectorIndex.size,
+        oldest_entry: null,
+        newest_entry: null,
+        dimensions: this.options.dimensions,
+        max_vectors_in_memory: this.options.maxVectors,
+        storage_mode: "in-memory (SQLite not available)",
+      };
+    }
 
-    return {
-      total_vectors: count.cnt || 0,
-      in_memory_index_size: this.vectorIndex.size,
-      oldest_entry: oldest.ts ? new Date(oldest.ts * 1000).toISOString() : null,
-      newest_entry: newest.ts ? new Date(newest.ts * 1000).toISOString() : null,
-      dimensions: this.options.dimensions,
-      max_vectors_in_memory: this.options.maxVectors,
-    };
+    try {
+      const count = this.db.prepare("SELECT COUNT(*) as cnt FROM vectors").get();
+      const oldest = this.db.prepare("SELECT MIN(stored_at) as ts FROM vectors").get();
+      const newest = this.db.prepare("SELECT MAX(stored_at) as ts FROM vectors").get();
+
+      return {
+        total_vectors: count.cnt || 0,
+        in_memory_index_size: this.vectorIndex.size,
+        oldest_entry: oldest.ts ? new Date(oldest.ts * 1000).toISOString() : null,
+        newest_entry: newest.ts ? new Date(newest.ts * 1000).toISOString() : null,
+        dimensions: this.options.dimensions,
+        max_vectors_in_memory: this.options.maxVectors,
+        storage_mode: "persistent (SQLite)",
+      };
+    } catch (err) {
+      console.warn(`[VectorMemoryDriver] Stats failed: ${err.message}`);
+      return {
+        total_vectors: this.vectorIndex.size,
+        in_memory_index_size: this.vectorIndex.size,
+        dimensions: this.options.dimensions,
+        storage_mode: "degraded (SQLite error)",
+      };
+    }
   }
 
   /**

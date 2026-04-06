@@ -30,11 +30,13 @@
   "author": "Batuhan <ahvcxa>",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "better-sqlite3": "^12.8.0",
     "commander": "^12.1.0",
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
     "zod": "^4.3.6"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^12.8.0"
   },
   "devDependencies": {
     "jest": "^29.7.0"
