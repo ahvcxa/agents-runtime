@@ -13,6 +13,7 @@ agent.yaml
 # Agent logs & memory store (NOT version controlled)
 .agents/logs/
 .agents/.memory-store
+.agents/memory/
 .agents/runs/
 
 # Per-project custom skills and hooks (NOT version controlled)
