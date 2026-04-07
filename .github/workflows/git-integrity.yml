@@ -56,14 +56,12 @@ jobs:
       - name: Verify .gitignore rules are in place
         run: |
           # Check if .gitignore has the necessary rules
-          if ! grep -q '^\.agents/$' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore && \
-             ! grep -q '^\.agents' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore; then
+          if ! grep -q '^\.agents' .gitignore; then
             echo "❌ ERROR: .gitignore missing .agents/ rule"
             exit 1
           fi
           
-          if ! grep -q '^agent\.yaml$' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore && \
-             ! grep -q '^agent\.yaml' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore; then
+          if ! grep -q '^agent\.yaml' .gitignore; then
             echo "❌ ERROR: .gitignore missing agent.yaml rule"
             exit 1
           fi

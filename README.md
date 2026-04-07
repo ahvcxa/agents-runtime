@@ -99,7 +99,30 @@ agents check
 agents list
 ```
 
-### 4. Traditional setup (if you prefer manual control)
+---
+
+## 📖 Setup & Documentation
+
+### Getting Started
+
+For detailed setup instructions and best practices, see **[SETUP_GUIDE.md](SETUP_GUIDE.md)** which covers:
+
+- ✅ Complete setup workflow (prerequisites, installation, verification)
+- ✅ Understanding generated vs. template files
+- ✅ File structure and .gitignore explanation
+- ✅ Common scenarios (developer setup, CI/CD, skill contribution)
+- ✅ Troubleshooting guide
+- ✅ Security considerations
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Template vs. generated file guidelines
+- How to contribute new skills and analyzers
+- Code style and PR guidelines
+
+### Traditional setup (if you prefer manual control)
 
 If you don't want the interactive wizard:
 
@@ -712,6 +735,36 @@ node /path/to/agents-runtime/bin/agents.js run \
     security-audit  in-memory)     events)
     refactor)
 ```
+
+---
+
+## 🔒 Git Integrity & Repository Maintenance
+
+This repository maintains strict git hygiene to prevent accidental commits of auto-generated and instance-specific files.
+
+### Protected Files (Never Committed)
+
+These files are automatically **excluded from version control** via `.gitignore`:
+
+| File/Folder | Type | Why Excluded |
+|---|---|---|
+| `.agents/` | Generated at runtime | Auto-generated on `npm install`; contains memory indexes and logs |
+| `agent.yaml` | Instance-specific | Different for every project instance; created by `npm run setup` |
+| `node_modules/` | Dependencies | Recreated by `npm install`; package-lock.json is used instead |
+
+### CI/CD Enforcement
+
+**Automated git integrity checks** (GitHub Actions) ensure these files never accidentally get committed:
+
+```yaml
+✅ Checks run on every push and pull request
+✅ Blocks PR merges if protected files are detected
+✅ Provides clear error messages and fix instructions
+```
+
+**Workflow:** `.github/workflows/git-integrity.yml`
+
+See [SETUP_GUIDE.md](SETUP_GUIDE.md#gitignore-rules) for detailed explanation of file management.
 
 ---
 
