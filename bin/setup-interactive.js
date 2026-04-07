@@ -138,6 +138,11 @@ async function main() {
 
   log(`  ✓ Selected: ${memoryBackend}\n`, "green");
 
+  // Step 4.5: Enable Memory System
+  const enableMemorySystem = await confirm("Enable Memory System for project analysis?\n  (automatic change tracking + git hooks)");
+  
+  log(`  ✓ Memory System: ${enableMemorySystem ? "✓ Enabled" : "✗ Disabled"}\n`, "green");
+
   // Step 5: CI/CD integration
   const ciIntegration = await selectFromList(
     "Will you use this in CI/CD?",
@@ -225,6 +230,7 @@ async function main() {
   log(`  Agent Type:       ${agentType}`, "gray");
   log(`  Python Support:   ${pythonSupport ? "✓ Yes" : "✗ No"}`, "gray");
   log(`  Memory Backend:   ${memoryBackend}`, "gray");
+  log(`  Memory System:    ${enableMemorySystem ? "✓ Enabled (with git hooks)" : "✗ Disabled"}`, "gray");
   log(`  CI/CD:            ${ciIntegration}`, "gray");
   log(`  Skills Enabled:   ${selectedSkills.length} skill(s)`, "gray");
   if (selectedSkills.length > 0) {
@@ -444,6 +450,9 @@ node ${path.relative(projectDir, path.join(runtimeDir, "bin/agents.js"))} run \\
 | Check compliance | \`npm run check\` |
 | List skills | \`npm run list\` |
 | Show events | \`npm run events\` |
+| **Build memory** | \`npm run agents learn\` |
+| **Memory stats** | \`npm run agents memory:stats\` |
+| **Search memory** | \`npm run agents memory:search "query"\` |
 
 ## Configuration
 
@@ -463,7 +472,8 @@ See \`.agents/TROUBLESHOOTING.md\` for common issues and solutions.
 1. Review \`.agents/settings.json\` for runtime config
 2. Add your project paths to \`.agents/settings.json\`
 3. Run \`npm run check\` to validate your config
-4. Integrate into CI/CD (see NEXT_STEPS.md)
+4. **Build memory index:** \`npm run agents learn\`
+5. Integrate into CI/CD (see NEXT_STEPS.md)
 
 ## Documentation
 
@@ -609,7 +619,45 @@ Edit \`.agents/settings.json\`:
 }
 \`\`\`
 
-## 5. Create Custom Skills (Optional)
+## 5. Memory System (Project Analysis & Auto-Tracking)
+
+The Memory System automatically indexes your project for fast context loading.
+
+**Build initial memory index:**
+
+\`\`\`bash
+npm run agents learn
+\`\`\`
+
+**View memory statistics:**
+
+\`\`\`bash
+npm run agents memory:stats
+npm run agents memory:stats --language javascript
+\`\`\`
+
+**Search project memory:**
+
+\`\`\`bash
+npm run agents memory:search "your query"
+npm run agents memory:search "exports" --language python
+\`\`\`
+
+**Automatic Git Integration:**
+
+After setup, two git hooks are installed:
+- \`.git/hooks/post-commit\` — Updates change-log after each commit
+- \`.git/hooks/post-merge\` — Syncs memory after pulls/merges
+
+Verify hooks are working:
+
+\`\`\`bash
+cat .agents/memory/change-log.json | tail
+\`\`\`
+
+See \`.agents/memory-system/MEMORY_SYSTEM.md\` for advanced features.
+
+## 6. Create Custom Skills (Optional)
 
 Create a new skill in \`.agents/skills/my-skill/\`:
 
@@ -621,14 +669,14 @@ Create a new skill in \`.agents/skills/my-skill/\`:
 
 See \`.agents/skills/code-analysis/SKILL.md\` for examples.
 
-## 6. Set Up Hooks (Optional)
+## 7. Set Up Hooks (Optional)
 
 Modify behavior with hooks in \`.agents/hooks/\`:
 
 - \`pre-read.hook.js\` — Filesystem access guard
 - \`skill-lifecycle.hook.js\` — Before/after skill execution
 
-## 7. Use as MCP Tool (Claude/Cursor/Windsurf)
+## 8. Use as MCP Tool (Claude/Cursor/Windsurf)
 
 Start the MCP server:
 
@@ -641,7 +689,7 @@ See \`docs/MCP_SETUP.md\` for details.
 
 ${ciSection}
 
-## 8. Integration Examples
+## 9. Integration Examples
 
 ### Pre-commit Hook
 

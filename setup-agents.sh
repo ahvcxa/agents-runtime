@@ -300,3 +300,44 @@ echo ""
 echo -e "Tip: Any agent can discover this setup via:"
 echo -e "  ${BOLD}cat .agents/manifest.json${NC}  ← machine-readable entry point"
 echo ""
+
+# ─── Install Git Hooks for Memory System ──────────────────────────────────────
+if command -v node &> /dev/null; then
+  if [ -f "$DEST/memory-system/setup-hooks.js" ]; then
+    echo -e "${BOLD}Setting up Git Hooks for Memory System...${NC}"
+    
+    # Call the setup-hooks.js module to install hooks
+    node -e "
+      const { installGitHooks } = require('$DEST/memory-system/setup-hooks.js');
+      const result = installGitHooks('$TARGET_DIR', { verbose: true });
+      
+      if (result.success) {
+        console.log('  ${GREEN}✓ Git hooks installed successfully${NC}');
+        console.log('  ${GREEN}✓ Post-commit hook: updates change-log${NC}');
+        console.log('  ${GREEN}✓ Post-merge hook: syncs memory${NC}');
+      } else {
+        console.log('  ${YELLOW}⚠ Warning: Could not install git hooks${NC}');
+        result.errors.forEach(err => console.log('    ' + err));
+      }
+      
+      if (result.warnings.length > 0) {
+        result.warnings.forEach(warn => console.log('  ${YELLOW}⚠ ' + warn + '${NC}'));
+      }
+    " 2>/dev/null || true
+    
+    echo ""
+  fi
+fi
+
+echo -e "${BOLD}Memory System Setup:${NC}"
+echo -e "  1. Build initial memory index:"
+echo -e "     ${BOLD}npm run agents learn${NC}"
+echo -e "  2. View memory statistics:"
+echo -e "     ${BOLD}npm run agents memory:stats${NC}"
+echo -e "  3. Search project memory:"
+echo -e "     ${BOLD}npm run agents memory:search 'query'${NC}"
+echo ""
+echo -e "Hooks are now active:"
+echo -e "  • ${BLUE}post-commit${NC} — Updates change-log after commits"
+echo -e "  • ${BLUE}post-merge${NC} — Syncs memory after pulls/merges"
+echo ""
