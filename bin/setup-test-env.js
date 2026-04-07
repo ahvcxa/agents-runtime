@@ -61,6 +61,17 @@ try {
     fs.copyFileSync(templateSettings, settingsFile);
     console.log('[setup-test-env] ✓ Copied settings.json to .agents');
   }
+  
+  // Copy other required subdirectories from template (hooks, helpers, memory-system)
+  const subdirs = ['hooks', 'helpers', 'memory-system'];
+  for (const subdir of subdirs) {
+    const templateSubdir = path.join(ROOT, 'template', subdir);
+    const agentSubdir = path.join(AGENTS_DIR, subdir);
+    if (fs.existsSync(templateSubdir) && !fs.existsSync(agentSubdir)) {
+      copyDirRecursive(templateSubdir, agentSubdir);
+      console.log(`[setup-test-env] ✓ Copied ${subdir} to .agents`);
+    }
+  }
 } catch (err) {
   console.error('[setup-test-env] ✗ Error:', err.message);
   // Don't fail postinstall - tests can handle it
