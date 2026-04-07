@@ -44,8 +44,8 @@ These files are part of the source distribution and are checked into version con
 | `template/.agents/settings.json` | Configuration template | ✓ Yes |
 | `template/.agents/helpers/` | Utility modules | ✓ Yes |
 | `template/.agents/hooks/` | Lifecycle hooks | ✓ Yes |
+| `template/.agents/agent-startup.md` | Runtime protocol documentation (source of truth) | ✓ Yes |
 | `examples/` | Reference configurations | ✓ Yes |
-| `.agents/agent-startup.md` | Runtime protocol documentation | ✓ Yes |
 
 ### Generated Files (NOT in Git)
 
@@ -357,8 +357,8 @@ npm test
 ## Next Steps
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines
-- Review [Agent Startup Protocol](.agents/agent-startup.md) to understand runtime
-- Check [Security Audit Documentation](.agents/SECURITY.md) for security features
+- Review [Agent Startup Protocol](template/.agents/agent-startup.md) to understand runtime behavior
+- Check [Security Audit Documentation](template/.agents/SECURITY.md) for security features
 - Explore [examples/](examples/) for sample configurations
 
 ---

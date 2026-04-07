@@ -8,19 +8,71 @@
 
 ## 1. Scope
 
-This protocol applies **exclusively** to AI agents (Claude, GPT, Gemini, etc.)
-that operate autonomously within this runtime environment.
+This protocol applies to:
+- **AI agents** (Claude, GPT, Gemini, etc.) that operate autonomously within this runtime environment
+- **Any external tool or service** that integrates with this runtime
+- **ALL callers** of `AgentRuntime.init()` (no exceptions)
 
-Human users and CI/CD pipelines follow different initialization paths (see
-`.agents/QUICK_START.md` and `.agents/NEXT_STEPS.md`).
+The discovery process is now **automatic and mandatory**. Manual configuration is deprecated.
+
+Human users invoking the CLI will also benefit from automatic discovery (see `.agents/QUICK_START.md`).
 
 ---
 
-## 2. Five-Step Mandatory Initialization
+## 2. Six-Step Mandatory Initialization (Updated: v2.6.0+)
 
-### **Step 1: Locate `agent.yaml` Configuration**
+### **Step 0: Automatic Agent Discovery (NEW - BUILT-IN)**
 
-**What to do:**
+**What happens automatically:**
+- `AgentRuntime.init()` automatically searches for `agent.yaml` in configured search paths
+- Search locations (from `settings.json`):
+  1. `./agent.yaml` (project root)
+  2. `../agent.yaml` (parent directory)
+  3. `../../agent.yaml` (grandparent directory)
+
+**You don't need to do anything** — this is automatic on runtime initialization.
+
+**If NOT found:**
+- Error: `ConfigurationNotFound`
+- Hard fail (exit code 1)
+- Clear error message with search paths attempted
+
+**If found:**
+- Parsed (YAML or JSON)
+- Stored in `runtime.agentConfig`
+- Available to all subsequent operations
+
+---
+
+### **Step 1: Compliance Checks (Automatic)**
+
+**What happens automatically:**
+- 7 compliance checks executed immediately after agent.yaml is found
+- Checks validate:
+  - CHK-001: Agent identity completeness (id, role, authorization_level)
+  - CHK-002: Authorization level is valid (1, 2, or 3)
+  - CHK-003: Read-only agents have authorization_level ≤ 1
+  - CHK-004: Declared skills exist in registry
+  - CHK-005: No forbidden file patterns in declared read paths
+  - CHK-006: Agent ID format is valid (lowercase alphanumeric)
+  - CHK-007: settings.json is valid and parseable
+
+**If any check fails:**
+- Error: `STARTUP_FAILURE`
+- Hard fail (exit code 1)
+- Detailed error message with failed check ID
+
+**If all pass:**
+- Agent authorized for runtime operations
+- Compliance metadata stored in `runtime.agentDiscovery`
+
+---
+
+### **Step 2: (Legacy) Locate `agent.yaml` Configuration**
+
+**DEPRECATED:** This step is now automatic (Step 0 above).
+
+**Legacy behavior** (if `autoDiscoverAgent: false` in init options):
 - Search for `agent.yaml` in these locations (in order):
   1. `./agent.yaml` (project root)
   2. `../agent.yaml` (parent directory)
@@ -47,7 +99,7 @@ Human users and CI/CD pipelines follow different initialization paths (see
 
 ---
 
-### **Step 2: Run Compliance Check**
+### **Step 3: Run Compliance Check**
 
 **What to do:**
 ```bash

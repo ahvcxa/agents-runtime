@@ -82,6 +82,8 @@ template/.agents/              # Distributed templates
 
 The `template/.agents/` directory contains the templates that are installed into user projects. The `.agents/` directory in the root is generated at runtime and should never be committed.
 
+**Note:** `template/.agents/agent-startup.md` is the single source of truth for agent startup documentation. It is copied during project setup to `.agents/agent-startup.md` and should be kept in sync with the latest v2.6.0+ features.
+
 ---
 
 ## Contributing a New Language Analyzer
