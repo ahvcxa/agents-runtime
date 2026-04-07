@@ -77,8 +77,15 @@ const COMPLIANCE_CHECKS = [
       const skillSets    = agentConfig?.agent?.skill_set ?? [];
       const skills       = Array.isArray(skillSets) ? skillSets : [skillSets];
       const registryPath = settings?.skills?.registry_path ?? ".agents/skills/";
+      const projectRoot  = settings?._projectRoot ?? process.cwd();
+      
+      // Make registry path absolute to avoid dependency on current working directory
+      const absoluteRegistryPath = path.isAbsolute(registryPath)
+        ? registryPath
+        : path.join(projectRoot, registryPath);
+      
       const missing = skills.filter(
-        (skill) => !fs.existsSync(path.join(registryPath, skill, "SKILL.md"))
+        (skill) => !fs.existsSync(path.join(absoluteRegistryPath, skill, "SKILL.md"))
       );
       if (missing.length > 0) {
         return {
