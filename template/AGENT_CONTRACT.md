@@ -1,1 +1,1 @@
-../.agents/AGENT_CONTRACT.md
+.agents/AGENT_CONTRACT.md

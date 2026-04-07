@@ -1,1 +1,1 @@
-../.agents/AI_AGENT_GUIDE.md
+.agents/AI_AGENT_GUIDE.md
