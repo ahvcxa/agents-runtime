@@ -70,25 +70,49 @@ jobs:
           cache: 'npm'
       - run: npm cache clean --force && npm ci
 
+      - name: Clean and prepare test project
+        run: |
+          rm -rf /tmp/ci-test-project
+          mkdir -p /tmp/ci-test-project
+          echo "✓ Test project directory prepared"
+
       - name: Install template into test project
         run: |
-          mkdir -p /tmp/ci-test-project
-          bash setup-agents.sh /tmp/ci-test-project || true
-          ls -la /tmp/ci-test-project/.agents/ || true
+          bash setup-agents.sh /tmp/ci-test-project
+          echo "✓ Template installed successfully"
+          ls -la /tmp/ci-test-project/.agents/ | head -10
 
-      - name: agents list
-        run: node bin/agents.js list --project /tmp/ci-test-project || true
-
-      - name: agents check (observer)
+      - name: Create agent.yaml in test project
         run: |
-          node bin/agents.js check \
+          cp examples/observer-agent.yaml /tmp/ci-test-project/agent.yaml
+          echo "✓ agent.yaml created from observer-agent example"
+          cat /tmp/ci-test-project/agent.yaml
+
+      - name: Verify agents list command
+        run: |
+          output=$(node bin/agents.js list --project /tmp/ci-test-project)
+          echo "$output" | grep -E '(skills|agents|Available)' || echo "Warning: Expected output pattern not found"
+          echo "✓ agents list executed successfully"
+
+      - name: Verify agents check command
+        run: |
+          output=$(node bin/agents.js check \
             --config examples/observer-agent.yaml \
-            --project /tmp/ci-test-project || true
+            --project /tmp/ci-test-project)
+          echo "$output" | head -20
+          echo "✓ agents check executed successfully"
 
-      - name: agents run (code-analysis on src/)
+      - name: Verify Python AST analyzer availability
         run: |
-          node bin/agents.js run \
+          python3 --version
+          python3 -c "import ast; print('✓ Python AST module available')"
+
+      - name: Verify agents run command
+        run: |
+          output=$(node bin/agents.js run \
             --config examples/observer-agent.yaml \
             --skill code-analysis \
             --input "{\"files\":[\"src/\"],\"project_root\":\"$(pwd)\"}" \
-            --project /tmp/ci-test-project 2>&1 | grep -E '(Status:|files_scanned|findings)' || true
+            --project /tmp/ci-test-project 2>&1)
+          echo "$output" | head -30
+          echo "✓ agents run command executed successfully"
