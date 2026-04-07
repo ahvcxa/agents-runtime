@@ -235,7 +235,7 @@ function findAgentConfig(root) {
 program
   .command("run")
   .description("Run a skill for an agent through the full lifecycle pipeline")
-  .requiredOption("-c, --config <path>", "Path to agent YAML/JSON config")
+  .option("-c, --config <path>", "Path to agent YAML/JSON config (auto-discovered if omitted - DEPRECATED)")
   .requiredOption("-s, --skill <id>",    "Skill ID to execute")
   .option("-i, --input <json>",   "JSON input payload", "{}")
   .option("-p, --project <dir>",  "Project root (default: cwd)")
@@ -245,8 +245,7 @@ program
   .option("--diff",               "Show diff vs. previous run after execution")
   .option("--baseline <ref>",     "Baseline for diff: index (0=latest) or git SHA prefix (default: 1=second-latest)")
   .action(async (opts) => {
-    const root        = projectRoot(opts);
-    const agentConfig = loadAgentConfig(opts.config);
+    const root = projectRoot(opts);
     let   input;
     try   { input = JSON.parse(opts.input); }
     catch (err) {
@@ -259,6 +258,18 @@ program
         projectRoot: root,
         verbosity:   opts.verbose ? "verbose" : undefined,
       });
+
+      // Agent config is now auto-discovered by runtime.init()
+      // Legacy: --config flag can override auto-discovered config
+      let agentConfig = runtime.agentConfig;
+      if (opts.config) {
+        console.warn("[DEPRECATION] --config flag is deprecated. Agent config is auto-discovered. Using provided config as override.");
+        agentConfig = loadAgentConfig(opts.config);
+      }
+
+      if (!agentConfig) {
+        throw new Error("No agent configuration found. Please ensure agent.yaml exists in the project root.");
+      }
 
       const { success, result, duration_ms } = await runtime.runAgent(agentConfig, opts.skill, input);
 

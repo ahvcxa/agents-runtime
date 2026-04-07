@@ -15,7 +15,8 @@ describe("AgentRuntime", () => {
 
   beforeAll(async () => {
     runtime = new AgentRuntime({ projectRoot: PROJECT_ROOT });
-    await runtime.init();
+    // Disable auto-discovery since test fixtures don't have agent.yaml
+    await runtime.init({ autoDiscoverAgent: false });
   });
 
   afterAll(async () => {

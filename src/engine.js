@@ -11,6 +11,7 @@ const fs   = require("fs");
 
 const { loadManifest }   = require("./loader/manifest-loader");
 const { loadSettings }   = require("./loader/settings-loader");
+const { discoverAndAuthorizeAgent, tryDiscoverAgent } = require("./loader/agent-discovery");
 const { StructuredLogger }= require("./logger/structured-logger");
 const { EventBus }       = require("./events/event-bus");
 const { HookRegistry }   = require("./registry/hook-registry");
@@ -42,18 +43,79 @@ class AgentRuntime {
   }
 
   /**
-   * Initialize the runtime. Must be called before any other method.
-   * @returns {Promise<AgentRuntime>} this
-   */
-  async init() {
-    // 1. Load config
+    * Initialize the runtime. Must be called before any other method.
+    * @param {object} [options] - Initialization options
+    * @param {boolean} [options.autoDiscoverAgent=true] - Auto-discover and authorize agent.yaml
+    * @returns {Promise<AgentRuntime>} this
+    */
+  async init(options = {}) {
+    const { autoDiscoverAgent = true } = options;
+
+    // 1. Load manifest + settings
     this.manifest = loadManifest(this.projectRoot);
     this.settings = loadSettings(this.projectRoot);
 
-    // 1.5. Discover and validate skills (auto-discovery)
+    // 2. [NEW] Auto-discover and authorize agent (Step 0 of startup protocol)
+    if (autoDiscoverAgent && this.settings.ai_agent_discovery?.enabled !== false) {
+      try {
+        // Create temporary logger for discovery
+        const tempLogger = new StructuredLogger(this.settings, this.projectRoot);
+        
+        const discovery = await discoverAndAuthorizeAgent(
+          this.projectRoot,
+          this.settings,
+          tempLogger
+        );
+
+        // Store agent configuration and discovery metadata
+        this.agentConfig = discovery.config;
+        this.agentDiscovery = {
+          path: discovery.path,
+          discoveredAt: discovery.discoveredAt,
+          discovery_time_ms: discovery.discovery_time_ms,
+          compliance: discovery.compliance,
+        };
+
+        tempLogger.log({
+          event_type: "INFO",
+          message: "[engine] Agent auto-discovered and authorized",
+          agent_id: discovery.config.agent.id,
+          agent_role: discovery.config.agent.role,
+          authorization_level: discovery.config.agent.authorization_level,
+          discovery_time_ms: discovery.discovery_time_ms,
+        });
+      } catch (error) {
+        if (error.message.includes("ConfigurationNotFound")) {
+          // Hard fail: agent configuration is mandatory
+          throw new Error(
+            `[engine] Agent initialization failed: ${error.message}\n\n` +
+            "Agent configuration (agent.yaml) is required for the runtime to operate. " +
+            "Please ensure agent.yaml exists in one of the search paths: " +
+            (this.settings.ai_agent_discovery?.search_paths || ["./agent.yaml"]).join(", ")
+          );
+        } else if (error.message.includes("STARTUP_FAILURE")) {
+          // Hard fail: compliance check failed
+          throw new Error(
+            `[engine] Agent authorization failed: ${error.message}\n\n` +
+            "The agent configuration failed compliance checks. " +
+            "Please review the agent.yaml configuration and ensure all required fields are valid."
+          );
+        } else {
+          // Hard fail: unexpected error
+          throw error;
+        }
+      }
+    } else if (!autoDiscoverAgent) {
+      // Legacy mode: agent config may be set manually
+      if (!this.agentConfig) {
+        console.warn("[engine] Warning: Agent config not discovered or set manually. Some features may not work.");
+      }
+    }
+
+    // 3. Discover and validate skills (auto-discovery)
     await this._discoverAndValidateSkills();
 
-    // 2. Validate security constraints (addresses 16 security findings)
+    // 4. Validate security constraints (addresses 16 security findings)
     const packageJsonPath = path.join(this.projectRoot, "package.json");
     const packageJson = fs.existsSync(packageJsonPath)
       ? JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
@@ -63,7 +125,7 @@ class AgentRuntime {
     // Override verbosity if provided
     if (this._verbosity) this.settings.logging.verbosity_mode = this._verbosity;
 
-    // 2. Boot infrastructure
+    // 5. Boot infrastructure
     this.logger   = new StructuredLogger(this.settings, this.projectRoot);
     this.semanticMemory = createMemoryStore(this.settings, 3, "runtime-system", this.projectRoot);
     this.eventBus = new EventBus(this.logger, { semanticMemory: this.semanticMemory });
@@ -80,26 +142,32 @@ class AgentRuntime {
       event_type: "INFO",
       message:    `AgentRuntime booting — project: ${this.projectRoot}`,
       spec_version: this.manifest.spec_version,
+      agent_id: this.agentConfig?.agent?.id || "unknown",
+      agent_authorization_level: this.agentConfig?.agent?.authorization_level || "unknown",
     });
 
-    // 3. Boot registries
+    // 6. Boot registries
     this.hookRegistry  = new HookRegistry(this.manifest.hooks, this.logger);
     this.skillRegistry = new SkillRegistry(this.manifest.skills, this.settings, this.logger);
 
-    // 4. Boot runner
+    // 7. Boot runner
     this.runner = new AgentRunner(this);
 
-    // 5. Optional MCP client layer (v2.0)
+    // 8. Optional MCP client layer (v2.0)
     await this.mcpManager.init();
 
-    // 6. Cognitive memory layer (v2.0)
+    // 9. Cognitive memory layer (v2.0)
     await this.cognitiveMemory.init();
 
-    // 7. Sandbox provider layer (v2.0)
+    // 10. Sandbox provider layer (v2.0)
     await this.sandboxManager.init();
 
     this._ready = true;
-    this.logger.log({ event_type: "INFO", message: "AgentRuntime ready." });
+    this.logger.log({
+      event_type: "INFO",
+      message: "AgentRuntime ready.",
+      agent_ready: !!this.agentConfig,
+    });
 
     return this;
   }
@@ -347,11 +415,12 @@ class AgentRuntime {
 /**
  * Factory helper — create and initialize in one call.
  * @param {object} options
+ * @param {boolean} [options.autoDiscoverAgent=true] - Auto-discover agent.yaml
  * @returns {Promise<AgentRuntime>}
  */
 async function createRuntime(options) {
   const rt = new AgentRuntime(options);
-  await rt.init();
+  await rt.init({ autoDiscoverAgent: options?.autoDiscoverAgent ?? true });
   return rt;
 }
 

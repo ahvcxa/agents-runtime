@@ -39,7 +39,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("writeProjectFile writes and creates file when allowed", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     const result = await writeProjectFile(rt, projectRoot, {
       targetPath: "mcp-fs-test/new-file.txt",
       content: "hello\nworld\n",
@@ -55,7 +55,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("writeProjectFile denies forbidden targets", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     await expect(writeProjectFile(rt, projectRoot, {
       targetPath: ".env",
       content: "SECRET=123\n",
@@ -65,7 +65,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("applyProjectPatch updates file content from unified diff", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     const patch = [
       "--- a/mcp-fs-test/a.js",
       "+++ b/mcp-fs-test/a.js",
@@ -84,7 +84,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("deleteProjectPath deletes directory recursively", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     const deleteDir = path.join(projectRoot, "mcp-fs-delete");
     await fs.mkdir(path.join(deleteDir, "sub"), { recursive: true });
     await fs.writeFile(path.join(deleteDir, "sub", "x.txt"), "x\n", "utf8");
@@ -99,7 +99,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("deleteProjectPath blocks deleting project root", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     await expect(deleteProjectPath(rt, projectRoot, {
       targetPath: ".",
       recursive: true,
@@ -111,7 +111,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("listProjectFiles returns directory entries with recursion", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     const result = await listProjectFiles(rt, projectRoot, {
       targetPath: "mcp-fs-test",
       recursive: true,
@@ -128,7 +128,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("readProjectFile returns paginated line window", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     const result = await readProjectFile(rt, projectRoot, {
       targetPath: "mcp-fs-test/notes.txt",
       offset: 2,
@@ -143,7 +143,7 @@ describe("mcp filesystem tools", () => {
   });
 
   test("readProjectFile respects pre-read forbidden patterns", async () => {
-    const rt = await createRuntime({ projectRoot, verbosity: "silent" });
+    const rt = await createRuntime({ projectRoot, verbosity: "silent", autoDiscoverAgent: false });
     await fs.writeFile(path.join(projectRoot, ".env"), "SECRET=abc\n", "utf8");
 
     await expect(readProjectFile(rt, projectRoot, {
