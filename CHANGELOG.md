@@ -11,7 +11,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- _No user-facing changes yet._
+- _No unreleased changes yet._
+
+---
+
+## [2.6.0] — 2026-04-07
+
+### Added
+
+- **📚 Comprehensive Setup Documentation**:
+  - New `SETUP_GUIDE.md` with detailed setup workflow and best practices
+  - Clear distinction between template files and generated files
+  - Common scenarios guide (developer setup, CI/CD, skill contribution, troubleshooting)
+  - Security considerations and file protection guidelines
+  - Git workflow best practices for maintainers
+
+### Changed
+
+- **Enhanced Contribution Guide**:
+  - Updated `CONTRIBUTING.md` with "What Gets Generated After Install" section
+  - Clarified when to edit `template/.agents/` vs. local `.agents/`
+  - Added template vs. generated files comparison table
+  - Improved skill contribution workflow documentation
+
+- **Improved Documentation**:
+  - Test count updated: 21 → 308 tests (post-implementation documentation)
+  - Clarified role of `template/` in distribution package
+  - Better explanation of `.gitignore` design rationale
+
+### Fixed
+
+- Documentation now accurately reflects that `.agents/` and `agent.yaml` are properly gitignored
+- Removed misleading comments about manual agent.yaml configuration
 
 ---
 

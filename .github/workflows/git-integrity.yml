@@ -1,0 +1,83 @@
+name: Git Integrity Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  check-excluded-files:
+    runs-on: ubuntu-latest
+    name: Verify .agents and agent.yaml not in git
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check .agents/ not tracked
+        run: |
+          if git ls-files | grep -E '^\.agents'; then
+            echo "❌ ERROR: .agents/ directory should not be tracked in git"
+            echo ""
+            echo "Found tracked files:"
+            git ls-files | grep -E '^\.agents' | head -10
+            echo ""
+            echo "The .agents/ directory is auto-generated and should be excluded from version control."
+            echo "It's already in .gitignore, but these files were somehow committed."
+            echo ""
+            echo "To fix this:"
+            echo "  git rm --cached -r .agents/"
+            echo "  git commit -m 'chore: remove .agents from git tracking'"
+            exit 1
+          fi
+          echo "✅ .agents/ is properly excluded from git"
+
+      - name: Check agent.yaml not tracked
+        run: |
+          if git ls-files | grep '^agent\.yaml$'; then
+            echo "❌ ERROR: agent.yaml should not be tracked in git"
+            echo ""
+            echo "Found tracked file:"
+            git ls-files | grep '^agent\.yaml$'
+            echo ""
+            echo "agent.yaml is instance-specific configuration and should be excluded from version control."
+            echo "It's already in .gitignore, but the file was somehow committed."
+            echo ""
+            echo "To fix this:"
+            echo "  git rm --cached agent.yaml"
+            echo "  git commit -m 'chore: remove agent.yaml from git tracking'"
+            exit 1
+          fi
+          echo "✅ agent.yaml is properly excluded from git"
+
+      - name: Verify .gitignore rules are in place
+        run: |
+          # Check if .gitignore has the necessary rules
+          if ! grep -q '^\.agents/$' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore && \
+             ! grep -q '^\.agents' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore; then
+            echo "❌ ERROR: .gitignore missing .agents/ rule"
+            exit 1
+          fi
+          
+          if ! grep -q '^agent\.yaml$' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore && \
+             ! grep -q '^agent\.yaml' /home/ahvcxa/Desktop/Folders/GitHub/agents-runtime/.gitignore; then
+            echo "❌ ERROR: .gitignore missing agent.yaml rule"
+            exit 1
+          fi
+          
+          echo "✅ .gitignore has required exclusion rules"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ All git integrity checks passed!"
+          echo ""
+          echo "Repository maintenance:"
+          echo "  • .agents/ is properly gitignored (auto-generated)"
+          echo "  • agent.yaml is properly gitignored (instance-specific)"
+          echo "  • template/.agents/ is tracked (for distribution)"
+          echo ""
+          echo "See SETUP_GUIDE.md for more information about file management."
