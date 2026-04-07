@@ -70,25 +70,25 @@ jobs:
           cache: 'npm'
       - run: npm cache clean --force && npm ci
 
-       - name: Install template into test project
-         run: |
-           mkdir -p /tmp/ci-test-project
-           bash setup-agents.sh /tmp/ci-test-project
-           ls -la /tmp/ci-test-project/.agents/ || true
+      - name: Install template into test project
+        run: |
+          mkdir -p /tmp/ci-test-project
+          bash setup-agents.sh /tmp/ci-test-project
+          ls -la /tmp/ci-test-project/.agents/ || true
 
-       - name: agents list
-         run: node bin/agents.js list --project /tmp/ci-test-project || true
+      - name: agents list
+        run: node bin/agents.js list --project /tmp/ci-test-project || true
 
-       - name: agents check (observer)
-         run: |
-           node bin/agents.js check \
-             --config examples/observer-agent.yaml \
-             --project /tmp/ci-test-project || true
+      - name: agents check (observer)
+        run: |
+          node bin/agents.js check \
+            --config examples/observer-agent.yaml \
+            --project /tmp/ci-test-project || true
 
-       - name: agents run (code-analysis on src/)
-         run: |
-           node bin/agents.js run \
-             --config examples/observer-agent.yaml \
-             --skill code-analysis \
-             --input "{\"files\":[\"src/\"],\"project_root\":\"$(pwd)\"}" \
-             --project /tmp/ci-test-project 2>&1 | grep -E '(Status:|files_scanned|findings)' || true
+      - name: agents run (code-analysis on src/)
+        run: |
+          node bin/agents.js run \
+            --config examples/observer-agent.yaml \
+            --skill code-analysis \
+            --input "{\"files\":[\"src/\"],\"project_root\":\"$(pwd)\"}" \
+            --project /tmp/ci-test-project 2>&1 | grep -E '(Status:|files_scanned|findings)' || true
