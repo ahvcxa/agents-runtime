@@ -315,21 +315,27 @@ if command -v node &> /dev/null; then
     echo -e "${BOLD}Setting up Git Hooks for Memory System...${NC}"
     
     # Call the setup-hooks.js module to install hooks
+    # Note: Using proper variable expansion with ${VAR} and ANSI color codes in JavaScript
     node -e "
-      const { installGitHooks } = require('$DEST/memory-system/setup-hooks.js');
-      const result = installGitHooks('$TARGET_DIR', { verbose: true });
+      const { installGitHooks } = require('${DEST}/memory-system/setup-hooks.js');
+      const result = installGitHooks('${TARGET_DIR}', { verbose: true });
+      
+      // Define ANSI color codes in Node.js context
+      const GREEN = '\\033[0;32m';
+      const YELLOW = '\\033[1;33m';
+      const NC = '\\033[0m';
       
       if (result.success) {
-        console.log('  ${GREEN}✓ Git hooks installed successfully${NC}');
-        console.log('  ${GREEN}✓ Post-commit hook: updates change-log${NC}');
-        console.log('  ${GREEN}✓ Post-merge hook: syncs memory${NC}');
+        console.log('  ' + GREEN + '✓ Git hooks installed successfully' + NC);
+        console.log('  ' + GREEN + '✓ Post-commit hook: updates change-log' + NC);
+        console.log('  ' + GREEN + '✓ Post-merge hook: syncs memory' + NC);
       } else {
-        console.log('  ${YELLOW}⚠ Warning: Could not install git hooks${NC}');
+        console.log('  ' + YELLOW + '⚠ Warning: Could not install git hooks' + NC);
         result.errors.forEach(err => console.log('    ' + err));
       }
       
       if (result.warnings.length > 0) {
-        result.warnings.forEach(warn => console.log('  ${YELLOW}⚠ ' + warn + '${NC}'));
+        result.warnings.forEach(warn => console.log('  ' + YELLOW + '⚠ ' + warn + NC));
       }
     " 2>/dev/null || true
     
