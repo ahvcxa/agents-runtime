@@ -16,7 +16,6 @@ describe("Agent Discovery System", () => {
 
   beforeAll(() => {
     settings = loadSettings(process.cwd());
-    console.log("[test-debug] loaded settings.skills.registry_path:", settings?.skills?.registry_path);
     
     // Ensure agent.yaml exists for testing (CI environments may not have it)
     if (!fs.existsSync(testAgentYamlPath)) {

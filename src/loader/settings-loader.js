@@ -164,8 +164,6 @@ function deepMerge(base, override) {
  */
 function loadSettings(projectRoot) {
   const settingsPath = path.join(projectRoot, ".agents", "settings.json");
-  console.log("[settings-loader-debug] looking for settings at:", settingsPath);
-  console.log("[settings-loader-debug] exists:", fs.existsSync(settingsPath));
 
   if (!fs.existsSync(settingsPath)) {
     console.warn(`[settings-loader] settings.json not found at ${settingsPath}. Using defaults.`);

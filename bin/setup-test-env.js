@@ -53,6 +53,14 @@ try {
     // .agents exists (local development)
     // Do nothing - preserve local state
   }
+  
+  // Copy settings.json if it doesn't exist
+  const settingsFile = path.join(AGENTS_DIR, 'settings.json');
+  const templateSettings = path.join(ROOT, 'template', 'settings.json');
+  if (!fs.existsSync(settingsFile) && fs.existsSync(templateSettings)) {
+    fs.copyFileSync(templateSettings, settingsFile);
+    console.log('[setup-test-env] ✓ Copied settings.json to .agents');
+  }
 } catch (err) {
   console.error('[setup-test-env] ✗ Error:', err.message);
   // Don't fail postinstall - tests can handle it
