@@ -178,6 +178,14 @@ if [ ! -f "$DEST/logs/.gitkeep" ]; then
   echo -e "  ${GREEN}CREATED${NC}   .agents/logs/.gitkeep"
 fi
 
+# Copy memory-system from templates/ directory
+MEMORY_SYSTEM_SRC="$SCRIPT_DIR/templates/memory-system"
+if [ -d "$MEMORY_SYSTEM_SRC" ]; then
+  echo -e "  ${BLUE}COPYING${NC}    memory-system from templates/"
+  cp -r "$MEMORY_SYSTEM_SRC" "$DEST/memory-system"
+  echo -e "  ${GREEN}COPIED${NC}    .agents/memory-system/"
+fi
+
 # For ESM projects, create .cjs copies of all CommonJS files
 # This allows them to run in projects with "type": "module" in package.json
 if [ -f "$TARGET_DIR/package.json" ] && grep -q '"type":\s*"module"' "$TARGET_DIR/package.json" 2>/dev/null; then
