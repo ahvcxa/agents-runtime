@@ -123,11 +123,14 @@ async function discoverAndAuthorizeAgent(projectRoot, settings, logger) {
     );
 
     if (!compliance.passed) {
-      const errorMsg = `[agent-discovery] STARTUP_FAILURE: Agent failed compliance check`;
+      const failureDetails = compliance.failures
+        .map(f => `${f.id} (${f.name}): ${f.detail}`)
+        .join("; ");
+      const errorMsg = `[agent-discovery] STARTUP_FAILURE: Agent failed compliance check: ${failureDetails}`;
       if (logger) {
         logger.error({
           event_type: "ERROR",
-          message: errorMsg,
+          message: `[agent-discovery] STARTUP_FAILURE: Agent failed compliance check`,
           agent_id: agentConfig?.agent?.id,
           failed_checks: compliance.failures,
         });
