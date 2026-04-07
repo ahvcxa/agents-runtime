@@ -283,7 +283,7 @@ MY_NEW_RULE: {
   id: "MY_NEW_RULE",
   pattern: /your-pattern-here/,
   owasp: "A01:2021",
-  cwe: "CWE-XXXX",
+  cwe: "CWE-NNNNN",  // Replace NNNNN with actual CWE number
   severity: "HIGH",
   message: "Description of vulnerability",
   recommendation: "How to fix it",

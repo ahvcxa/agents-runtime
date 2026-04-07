@@ -126,7 +126,7 @@ function patchEmptyCatch(finding, lines) {
     const errVar   = varMatch ? varMatch[1].trim() : "err";
     newLines[lineIdx] = catchLine.replace(
       /\{\s*\}/,
-      `{\n  // TODO: Handle or log this error properly\n  console.error('[unhandled]', ${errVar});\n}`
+      `{\n  // Error handling: logs unhandled exceptions to console\n  console.error('[unhandled]', ${errVar});\n}`
     );
     return { newLines };
   }
