@@ -1,1 +1,0 @@
-.agents/AGENT_CONTRACT.md
