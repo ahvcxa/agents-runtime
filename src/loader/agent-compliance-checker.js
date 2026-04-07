@@ -84,9 +84,15 @@ const COMPLIANCE_CHECKS = [
         ? registryPath
         : path.join(projectRoot, registryPath);
       
-      const missing = skills.filter(
-        (skill) => !fs.existsSync(path.join(absoluteRegistryPath, skill, "SKILL.md"))
-      );
+      console.log(`[CHK-004-DEBUG] projectRoot=${projectRoot}, registryPath=${registryPath}, absoluteRegistryPath=${absoluteRegistryPath}`);
+      
+      const missing = skills.filter((skill) => {
+        const skillPath = path.join(absoluteRegistryPath, skill, "SKILL.md");
+        const exists = fs.existsSync(skillPath);
+        console.log(`[CHK-004-DEBUG] skill=${skill}, skillPath=${skillPath}, exists=${exists}`);
+        return !exists;
+      });
+      
       if (missing.length > 0) {
         return {
           pass: false,
