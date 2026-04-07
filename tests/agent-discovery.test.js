@@ -12,9 +12,33 @@ const { loadSettings } = require("../src/loader/settings-loader");
 describe("Agent Discovery System", () => {
   const testProjectRoot = path.join(__dirname, "fixtures", "agent-discovery");
   let settings;
+  const testAgentYamlPath = path.join(process.cwd(), "agent.yaml");
 
   beforeAll(() => {
     settings = loadSettings(process.cwd());
+    
+    // Ensure agent.yaml exists for testing (CI environments may not have it)
+    if (!fs.existsSync(testAgentYamlPath)) {
+      const agentConfig = `agent:
+  id: "test-agent"
+  role: "Test"
+  skill_set:
+    - "code-analysis"
+  authorization_level: 1
+  read_only: true
+  read_paths:
+    - "src/"
+    - "tests/"
+`;
+      fs.writeFileSync(testAgentYamlPath, agentConfig);
+    }
+  });
+
+  afterAll(() => {
+    // Clean up test agent.yaml if we created it
+    if (fs.existsSync(testAgentYamlPath)) {
+      fs.unlinkSync(testAgentYamlPath);
+    }
   });
 
   describe("discoverAndAuthorizeAgent", () => {
