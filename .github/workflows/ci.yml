@@ -32,7 +32,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm cache clean --force && npm ci
 
       - name: Check dependencies
         run: node -e "try { require('better-sqlite3'); console.log('✓ better-sqlite3 available'); } catch(e) { console.warn('⚠ better-sqlite3 not available - using in-memory storage'); }"
@@ -45,12 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
-      - name: Check for syntax errors
+       - uses: actions/setup-node@v4
+         with:
+           node-version: '22'
+           cache: 'npm'
+       - run: npm cache clean --force && npm ci
+       - name: Check for syntax errors
         run: |
           node --check bin/agents.js
           node --check bin/mcp.js
@@ -64,13 +64,13 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-      - run: npm ci
+       - uses: actions/setup-node@v4
+         with:
+           node-version: '22'
+           cache: 'npm'
+       - run: npm cache clean --force && npm ci
 
-      - name: Install template into test project
+       - name: Install template into test project
         run: |
           mkdir -p /tmp/ci-test-project
           bash setup-agents.sh /tmp/ci-test-project
