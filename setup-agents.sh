@@ -128,7 +128,8 @@ copy_symlink_content() {
   else
     # Relative symlink - resolve from its directory
     # Use a subshell to handle relative paths correctly
-    target="$( (cd "$symlink_dir" && [ -e "$symlink_target" ] && echo "$(pwd)/$symlink_target") )"
+    # Use || true to prevent set -e from breaking when symlink target doesn't exist
+    target="$( (cd "$symlink_dir" && [ -e "$symlink_target" ] && echo "$(pwd)/$symlink_target") || true )"
   fi
 
   # Only proceed if we have a valid target that exists
