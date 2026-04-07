@@ -179,10 +179,10 @@ if [ ! -f "$DEST/logs/.gitkeep" ]; then
   echo -e "  ${GREEN}CREATED${NC}   .agents/logs/.gitkeep"
 fi
 
-# Copy memory-system from templates/ directory
-MEMORY_SYSTEM_SRC="$SCRIPT_DIR/templates/memory-system"
+# Copy memory-system from template/ directory
+MEMORY_SYSTEM_SRC="$SCRIPT_DIR/template/memory-system"
 if [ -d "$MEMORY_SYSTEM_SRC" ]; then
-  echo -e "  ${BLUE}COPYING${NC}    memory-system from templates/"
+  echo -e "  ${BLUE}COPYING${NC}    memory-system from template/"
   cp -r "$MEMORY_SYSTEM_SRC" "$DEST/memory-system"
   echo -e "  ${GREEN}COPIED${NC}    .agents/memory-system/"
 fi
