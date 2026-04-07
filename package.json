@@ -11,6 +11,7 @@
     "start": "node bin/agents.js",
     "setup": "node bin/setup-interactive.js",
     "mcp": "node bin/mcp.js",
+    "agents": "node bin/agents.js",
     "inject-role": "node bin/inject-role.js",
     "setup-agent": "node bin/setup-agent.js",
     "postinstall": "node bin/inject-role.js",

@@ -23,6 +23,15 @@ const { RunHistoryStore }  = require("../src/diff/run-history-store");
 const { compare }          = require("../src/diff/diff-engine");
 const { formatTerminal }   = require("../src/diff/diff-formatter");
 
+// Memory system commands
+const {
+  handleLearn,
+  handleMemoryStats,
+  handleMemorySearch,
+  handleMemoryLanguages,
+  handleMemoryExport,
+} = require("../.agents/memory-system/cli/commands");
+
 const program = new Command();
 
 // ─── Config Cache Management ───────────────────────────────────────────────────
@@ -651,6 +660,115 @@ program
     }
 
     process.exit(diff.summary.regressed ? 1 : 0);
+  });
+
+// ─── agents learn ────────────────────────────────────────────────────────────────
+program
+  .command("learn")
+  .description("Learn project structure and build memory for context")
+  .option("-p, --project <dir>",   "Project root (default: cwd)")
+  .option("-r, --refresh",         "Incremental update instead of full scan")
+  .option("-f, --force",           "Force full rescan")
+  .option("-v, --verbose",         "Verbose output")
+  .option("--languages <list>",    "Comma-separated languages to scan (default: all detected)")
+  .action(async (opts) => {
+    try {
+      const projectRoot = opts.project || process.cwd();
+      const languages = opts.languages ? opts.languages.split(",") : null;
+
+      const result = await handleLearn({
+        projectRoot,
+        refresh: opts.refresh || false,
+        force: opts.force || false,
+        verbose: opts.verbose || false,
+        languages,
+      });
+
+      process.exit(result.success ? 0 : 1);
+    } catch (err) {
+      logCliError("LEARN_COMMAND_FAILED", err, { command: "learn" });
+      process.exit(1);
+    }
+  });
+
+// ─── agents memory:stats ─────────────────────────────────────────────────────────
+program
+  .command("memory:stats")
+  .description("Show memory statistics")
+  .option("-p, --project <dir>",   "Project root (default: cwd)")
+  .option("--language <lang>",     "Show stats for specific language")
+  .action(async (opts) => {
+    try {
+      const result = await handleMemoryStats({
+        projectRoot: opts.project || process.cwd(),
+        language: opts.language,
+      });
+
+      process.exit(result.success ? 0 : 1);
+    } catch (err) {
+      logCliError("MEMORY_STATS_FAILED", err, { command: "memory:stats" });
+      process.exit(1);
+    }
+  });
+
+// ─── agents memory:search ────────────────────────────────────────────────────────
+program
+  .command("memory:search <query>")
+  .description("Search project memory")
+  .option("-p, --project <dir>",   "Project root (default: cwd)")
+  .option("--language <lang>",     "Filter by language")
+  .option("--limit <n>",           "Max results (default: 10)")
+  .action(async (query, opts) => {
+    try {
+      const result = await handleMemorySearch(query, {
+        projectRoot: opts.project || process.cwd(),
+        language: opts.language,
+        limit: parseInt(opts.limit) || 10,
+      });
+
+      process.exit(result.success ? 0 : 1);
+    } catch (err) {
+      logCliError("MEMORY_SEARCH_FAILED", err, { command: "memory:search" });
+      process.exit(1);
+    }
+  });
+
+// ─── agents memory:languages ─────────────────────────────────────────────────────
+program
+  .command("memory:languages")
+  .description("List detected languages in project")
+  .option("-p, --project <dir>",   "Project root (default: cwd)")
+  .action(async (opts) => {
+    try {
+      const result = await handleMemoryLanguages({
+        projectRoot: opts.project || process.cwd(),
+      });
+
+      process.exit(result.success ? 0 : 1);
+    } catch (err) {
+      logCliError("MEMORY_LANGUAGES_FAILED", err, { command: "memory:languages" });
+      process.exit(1);
+    }
+  });
+
+// ─── agents memory:export ────────────────────────────────────────────────────────
+program
+  .command("memory:export [format]")
+  .description("Export memory to various formats (json, text)")
+  .option("-p, --project <dir>",   "Project root (default: cwd)")
+  .option("-o, --output <file>",   "Output file (optional)")
+  .action(async (format, opts) => {
+    try {
+      const result = await handleMemoryExport(format || "json", {
+        projectRoot: opts.project || process.cwd(),
+        output: opts.output,
+      });
+
+      process.exit(result.success ? 0 : 1);
+    } catch (err) {
+      logCliError("MEMORY_EXPORT_FAILED", err, { command: "memory:export" });
+      process.exit(1);
+    }
   });
 
 program.parse(process.argv);
