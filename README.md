@@ -53,118 +53,24 @@ Instead of every AI chat session re-inventing the wheel, you define **skills** o
 
 ## 🚀 Quick Start
 
-### Prerequisites
+For complete setup instructions, see **[SETUP_GUIDE.md](SETUP_GUIDE.md)**.
 
-- Node.js ≥ 18.0.0
-- npm ≥ 9.0.0
-- Python 3.8+ *(optional — enables deep AST-based analysis for Python files)*
-
-### 1. Clone and install
+Quick version:
 
 ```bash
+# Clone and install
 git clone https://github.com/ahvcxa/agents-runtime.git
 cd agents-runtime
 npm install
-```
 
-### 2. Interactive Setup (Recommended!)
-
-Run the interactive setup wizard:
-
-```bash
+# Run setup wizard
 npm run setup
+
+# Verify installation
+npm test
 ```
 
-This will:
-- Ask you a few questions (agent type, Python support, CI/CD)
-- Create `.agents/` configuration
-- Generate `QUICK_START.md` and `NEXT_STEPS.md` guides
-- Validate your setup
-
-### 3. Quick Commands
-
-Once set up, use simplified commands:
-
-```bash
-# Analyze code
-agents analyze src/ tests/
-
-# Security audit
-agents audit src/ .env.example
-
-# Check compliance
-agents check
-
-# List skills
-agents list
-```
-
----
-
-## 📖 Setup & Documentation
-
-### Getting Started
-
-For detailed setup instructions and best practices, see **[SETUP_GUIDE.md](SETUP_GUIDE.md)** which covers:
-
-- ✅ Complete setup workflow (prerequisites, installation, verification)
-- ✅ Understanding generated vs. template files
-- ✅ File structure and .gitignore explanation
-- ✅ Common scenarios (developer setup, CI/CD, skill contribution)
-- ✅ Troubleshooting guide
-- ✅ Security considerations
-
-### Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Development setup
-- Template vs. generated file guidelines
-- How to contribute new skills and analyzers
-- Code style and PR guidelines
-
-### Traditional setup (if you prefer manual control)
-
-If you don't want the interactive wizard:
-
-```bash
-bash setup-agents.sh /path/to/your/project --agent fullstack
-```
-
-Then create or edit `agent.yaml` in your project root:
-
-```yaml
-agent:
-  id: "my-analyzer"
-  role: "Observer"
-  skill_set:
-    - "code-analysis"
-    - "security-audit"
-  authorization_level: 1
-  read_only: true
-  read_paths:
-    - "src/"
-    - "tests/"
-```
-
-### 5. Run
-
-```bash
-# Verify compliance
-agents check
-
-# Analyze code
-agents analyze src/
-
-# Security audit
-agents audit src/
-
-# Or use full command syntax (for advanced users)
-node bin/agents.js run \
-  --config agent.yaml \
-  --skill code-analysis \
-  --input '{"files":["src/"],"project_root":"."}' \
-  --project .
-```
+**Next:** Read [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed instructions, or see [CONTRIBUTING.md](CONTRIBUTING.md) for development setup.
 
 ---
 
