@@ -19,8 +19,15 @@ describe("Agent Discovery System", () => {
     
     // Ensure agent.yaml exists for testing (CI environments may not have it)
     if (!fs.existsSync(testAgentYamlPath)) {
-      const agentConfig = `agent:
-  id: "test-agent"
+      const examplePath = path.join(__dirname, "..", "examples", "observer-agent.yaml");
+      if (fs.existsSync(examplePath)) {
+        // Copy example agent configuration for testing
+        const exampleContent = fs.readFileSync(examplePath, "utf-8");
+        fs.writeFileSync(testAgentYamlPath, exampleContent);
+      } else {
+        // Fallback: Create minimal valid agent config
+        const agentConfig = `agent:
+  id: "test-agent-01"
   role: "Test"
   skill_set:
     - "code-analysis"
@@ -30,7 +37,8 @@ describe("Agent Discovery System", () => {
     - "src/"
     - "tests/"
 `;
-      fs.writeFileSync(testAgentYamlPath, agentConfig);
+        fs.writeFileSync(testAgentYamlPath, agentConfig);
+      }
     }
   });
 
