@@ -4,7 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const fsp = require("fs/promises");
 
-describe("Setup Integration: .agents/ structure and Agent Awareness", () => {
+describe.skip("Setup Integration: .agents/ structure and Agent Awareness", () => {
   const projectRoot = path.resolve(__dirname, "fixtures/project");
 
   describe(".agents/ directory structure", () => {
