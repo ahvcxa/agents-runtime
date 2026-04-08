@@ -16,6 +16,9 @@ const { ExecutorFactory } = require("./executors/executor-factory");
 const { RunHistoryStore } = require("./diff/run-history-store");
 const { ReasoningLoop } = require("./orchestration/reasoning-loop");
 const { enforceHitl } = require("./orchestration/hitl-guard");
+const { getAgentAwareness } = require("./loaders/agent-awareness");
+const { DynamicConfigLoader, SecurityViolationError } = require("./loaders/dynamic-config-loader");
+const { AgentContextInjector } = require("./context/agent-context-injector");
 
 // ─── Async execFile helper ─────────────────────────────────────────────────────
 /**
@@ -95,6 +98,29 @@ class AgentRunner {
     }
 
     this.logger.log({ event_type: "INFO", message: `Starting agent '${agentId}' → skill '${skillId}'` });
+
+    // 0. Load .agents context & enforce dynamic configuration
+    const agentAwareness = getAgentAwareness({ logger: this.logger });
+    let agentContext;
+    try {
+      agentContext = await agentAwareness.loadAgentContext(this.projectRoot);
+    } catch (err) {
+      this.logger.log({ event_type: "ERROR", agent_id: agentId, message: `[agent-runner] Failed to load .agents context: ${err.message}` });
+      throw err;
+    }
+
+    // Enforce security constraints on input
+    const configLoader = new DynamicConfigLoader(agentContext, { logger: this.logger });
+    try {
+      configLoader.enforceSecurityConstraints(input, authLevel);
+      configLoader.validateSkillAuthorization(skillId, authLevel);
+    } catch (err) {
+      if (err instanceof SecurityViolationError) {
+        this.logger.log({ event_type: "ERROR", agent_id: agentId, skill_id: skillId, message: `[agent-runner] Security violation: ${err.code}` });
+        return { success: false, error: err.code, details: err.details, duration_ms: Date.now() - Date.now() };
+      }
+      throw err;
+    }
 
     // 1. Compliance check
     await this._runComplianceCheck(agentConfig);
