@@ -57,16 +57,16 @@ describe('MemoryACL', () => {
   describe('validate', () => {
     it('should allow L1 read operations on skill cache', () => {
       // Act & Assert
-      expect(() => MemoryACL.validate('get', 'skill:analysis:cache:result', 1)).not.toThrow();
+      expect(() => MemoryACL.validate('read', 'skill:analysis:cache:result', 1)).not.toThrow();
     });
 
     it('should deny L1 write operations on skill cache', () => {
       // Act & Assert
-      expect(() => MemoryACL.validate('set', 'skill:analysis:cache:result', 1))
+      expect(() => MemoryACL.validate('write', 'skill:analysis:cache:result', 1))
         .toThrow(MemoryACLError);
 
       try {
-        MemoryACL.validate('set', 'skill:analysis:cache:result', 1);
+        MemoryACL.validate('write', 'skill:analysis:cache:result', 1);
       } catch (err) {
         expect(err.code).toBe('WRITE_DENIED');
       }
@@ -80,24 +80,24 @@ describe('MemoryACL', () => {
 
     it('should allow L2 read and write on skill cache', () => {
       // Act & Assert
-      expect(() => MemoryACL.validate('get', 'skill:analysis:cache:result', 2)).not.toThrow();
-      expect(() => MemoryACL.validate('set', 'skill:analysis:cache:result', 2)).not.toThrow();
+      expect(() => MemoryACL.validate('read', 'skill:analysis:cache:result', 2)).not.toThrow();
+      expect(() => MemoryACL.validate('write', 'skill:analysis:cache:result', 2)).not.toThrow();
     });
 
     it('should allow L3 all operations on all namespaces', () => {
       // Act & Assert
-      expect(() => MemoryACL.validate('get', 'any:namespace', 3)).not.toThrow();
-      expect(() => MemoryACL.validate('set', 'any:namespace', 3)).not.toThrow();
+      expect(() => MemoryACL.validate('read', 'any:namespace', 3)).not.toThrow();
+      expect(() => MemoryACL.validate('write', 'any:namespace', 3)).not.toThrow();
       expect(() => MemoryACL.validate('delete', 'any:namespace', 3)).not.toThrow();
     });
 
     it('should throw ACCESS_DENIED when namespace not accessible', () => {
       // Act & Assert
-      expect(() => MemoryACL.validate('get', 'pipeline:orchestration', 1))
+      expect(() => MemoryACL.validate('read', 'pipeline:orchestration', 1))
         .toThrow(MemoryACLError);
 
       try {
-        MemoryACL.validate('get', 'pipeline:orchestration', 1);
+        MemoryACL.validate('read', 'pipeline:orchestration', 1);
       } catch (err) {
         expect(err.code).toBe('ACCESS_DENIED');
       }
@@ -105,9 +105,9 @@ describe('MemoryACL', () => {
 
     it('should include details in error', () => {
       try {
-        MemoryACL.validate('set', 'agent:other:state', 1);
+        MemoryACL.validate('write', 'agent:other:state', 1);
       } catch (err) {
-        expect(err.details.operation).toBe('set');
+        expect(err.details.operation).toBe('write');
         expect(err.details.namespace).toBe('agent:other:state');
         expect(err.details.authLevel).toBe(1);
       }
@@ -221,11 +221,11 @@ describe('MemoryACL', () => {
     });
 
     it('should throw different error codes for different violations', () => {
-      expect(() => MemoryACL.validate('set', 'event:test', 1)).toThrow();
+      expect(() => MemoryACL.validate('write', 'event:test', 1)).toThrow();
       let err;
       
       try {
-        MemoryACL.validate('set', 'event:test', 1);
+        MemoryACL.validate('write', 'event:test', 1);
       } catch (e) {
         err = e;
       }
@@ -236,7 +236,7 @@ describe('MemoryACL', () => {
 
   describe('Namespace matching edge cases', () => {
     it('should not match partial namespace patterns', () => {
-      expect(MemoryACL.namespaceMatches('skill:x:y:z:a', 'skill:*:y:*')).toBe(true);
+      expect(MemoryACL.namespaceMatches('skill:x:y:z', 'skill:*:y:*')).toBe(true);
       expect(MemoryACL.namespaceMatches('skill:x:y', 'skill:*:y:*')).toBe(false);
     });
 

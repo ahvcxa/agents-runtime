@@ -41,7 +41,7 @@ describe('AgentAwareness', () => {
         path.join(agentsDir, 'settings.json'),
         JSON.stringify({
           environment: 'development',
-          agent_discovery: {},
+          ai_agent_discovery: {},
           logging: {},
           security: { forbidden_file_patterns: ['.env*'] }
         })
@@ -76,7 +76,7 @@ describe('AgentAwareness', () => {
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
         environment: 'development',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       }));
@@ -101,7 +101,7 @@ describe('AgentAwareness', () => {
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
         environment: 'development',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       }));
@@ -131,7 +131,7 @@ describe('AgentAwareness', () => {
       fs.writeFileSync(path.join(agentsDir, 'manifest.json'), '{ invalid json }');
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
         environment: 'development',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       }));
@@ -294,7 +294,7 @@ describe('AgentAwareness', () => {
     it('should validate settings has required fields', () => {
       const validSettings = {
         environment: 'development',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       };
@@ -314,7 +314,7 @@ describe('AgentAwareness', () => {
     it('should throw if environment invalid', () => {
       const invalidSettings = {
         environment: 'staging',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       };
@@ -368,7 +368,7 @@ describe('AgentAwareness', () => {
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
         environment: 'development',
-        agent_discovery: {},
+        ai_agent_discovery: {},
         logging: {},
         security: {}
       }));
