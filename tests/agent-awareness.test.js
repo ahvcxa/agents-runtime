@@ -37,15 +37,15 @@ describe('AgentAwareness', () => {
         })
       );
 
-      fs.writeFileSync(
-        path.join(agentsDir, 'settings.json'),
-        JSON.stringify({
-          environment: 'development',
-          ai_agent_discovery: {},
-          logging: {},
-          security: { forbidden_file_patterns: ['.env*'] }
-        })
-      );
+       fs.writeFileSync(
+         path.join(agentsDir, 'settings.json'),
+         JSON.stringify({
+            runtime: { environment: "development" },
+           ai_agent_discovery: {},
+           logging: {},
+           security: { forbidden_file_patterns: ['.env*'] }
+         })
+       );
 
       fs.writeFileSync(
         path.join(agentsDir, 'AGENT_CONTRACT.md'),
@@ -58,7 +58,7 @@ describe('AgentAwareness', () => {
       // Assert
       expect(context).toBeDefined();
       expect(context.manifest.spec_version).toBe('1.0.0');
-      expect(context.settings.environment).toBe('development');
+       expect(context.settings.runtime.environment).toBe('development');
       expect(context.contract).toContain('Agent Contract');
       expect(context.hash).toBeDefined();
       expect(context.loadedAt).toBeDefined();
@@ -75,7 +75,7 @@ describe('AgentAwareness', () => {
         skills: {}
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
-        environment: 'development',
+        runtime: { environment: "development" },
         ai_agent_discovery: {},
         logging: {},
         security: {}
@@ -100,7 +100,7 @@ describe('AgentAwareness', () => {
         skills: { 'skill-v1': { id: 'skill-v1' } }
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
-        environment: 'development',
+        runtime: { environment: "development" },
         ai_agent_discovery: {},
         logging: {},
         security: {}
@@ -130,7 +130,7 @@ describe('AgentAwareness', () => {
       fs.mkdirSync(agentsDir);
       fs.writeFileSync(path.join(agentsDir, 'manifest.json'), '{ invalid json }');
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
-        environment: 'development',
+        runtime: { environment: "development" },
         ai_agent_discovery: {},
         logging: {},
         security: {}
@@ -293,7 +293,7 @@ describe('AgentAwareness', () => {
   describe('validateSettingsSchema', () => {
     it('should validate settings has required fields', () => {
       const validSettings = {
-        environment: 'development',
+        runtime: { environment: "development" },
         ai_agent_discovery: {},
         logging: {},
         security: {}
@@ -305,7 +305,7 @@ describe('AgentAwareness', () => {
 
     it('should throw if required fields missing', () => {
       const invalidSettings = {
-        environment: 'development'
+        runtime: { environment: "development" }
       };
 
       expect(() => agentAwareness.validateSettingsSchema(invalidSettings)).toThrow();
@@ -313,7 +313,7 @@ describe('AgentAwareness', () => {
 
     it('should throw if environment invalid', () => {
       const invalidSettings = {
-        environment: 'staging',
+        runtime: { environment: 'staging' },
         ai_agent_discovery: {},
         logging: {},
         security: {}
@@ -367,7 +367,7 @@ describe('AgentAwareness', () => {
         skills: {}
       }));
       fs.writeFileSync(path.join(agentsDir, 'settings.json'), JSON.stringify({
-        environment: 'development',
+        runtime: { environment: "development" },
         ai_agent_discovery: {},
         logging: {},
         security: {}

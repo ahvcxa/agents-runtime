@@ -257,16 +257,17 @@ class AgentAwareness extends EventEmitter {
    * Validate settings.json against expected schema
    */
   validateSettingsSchema(settings) {
-    const required = ['environment', 'ai_agent_discovery', 'logging', 'security'];
+    const required = ['runtime', 'ai_agent_discovery', 'logging', 'security'];
     for (const field of required) {
       if (!settings[field]) {
         throw new Error(`Settings missing required field: ${field}`);
       }
     }
 
-    // Validate environment
-    if (!['development', 'production'].includes(settings.environment)) {
-      throw new Error(`Invalid environment: ${settings.environment}`);
+    // Validate runtime.environment
+    const environment = settings.runtime?.environment;
+    if (!environment || !['development', 'production'].includes(environment)) {
+      throw new Error(`Invalid environment: ${environment}`);
     }
 
     return true;
