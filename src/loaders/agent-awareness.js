@@ -45,6 +45,15 @@ class AgentAwareness extends EventEmitter {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
       this.validateManifestSchema(manifest);
 
+      // Normalize skills from array to object format for DynamicConfigLoader
+      if (Array.isArray(manifest.skills)) {
+        const skillsObj = {};
+        manifest.skills.forEach(skill => {
+          skillsObj[skill.id] = skill;
+        });
+        manifest.skills = skillsObj;
+      }
+
       // Load settings
       const settingsPath = path.join(projectRoot, '.agents', 'settings.json');
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
@@ -248,7 +257,7 @@ class AgentAwareness extends EventEmitter {
    * Validate settings.json against expected schema
    */
   validateSettingsSchema(settings) {
-    const required = ['environment', 'agent_discovery', 'logging', 'security'];
+    const required = ['environment', 'ai_agent_discovery', 'logging', 'security'];
     for (const field of required) {
       if (!settings[field]) {
         throw new Error(`Settings missing required field: ${field}`);

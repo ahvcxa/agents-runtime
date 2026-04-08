@@ -6,7 +6,7 @@
   "entry_points": {
     "contract":  ".agents/AGENT_CONTRACT.md",
     "settings":  ".agents/settings.json",
-    "ai_agent_startup": ".agents/agent-startup.md",
+    "startup_guide": ".agents/agent-startup.md",
     "ai_agent_guide": ".agents/AI_AGENT_GUIDE.md"
   },
 

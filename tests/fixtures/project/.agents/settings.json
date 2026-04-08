@@ -1,6 +1,6 @@
 {
+  "environment": "development",
   "runtime": {
-    "environment": "test",
     "agent_timeout_seconds": 30,
     "sandbox": {
       "strategy": "process",
@@ -9,6 +9,13 @@
       "docker_cpus": "1",
       "docker_memory": "256m"
     }
+  },
+  "ai_agent_discovery": {
+    "enabled": true,
+    "search_paths": ["./agent.yaml", "../agent.yaml"],
+    "auto_discover_on_init": true,
+    "hard_fail_if_not_found": false,
+    "compliance_check_required": true
   },
   "memory": {
     "enabled": true,
@@ -51,6 +58,13 @@
       "id_rsa",
       "id_ed25519"
     ],
+    "forbidden_paths": [
+      ".env",
+      ".env.local",
+      ".git/**",
+      "node_modules/**",
+      "dist/**"
+    ],
     "allowed_endpoints": [
       "https://api.example.com",
       "https://internal.example.com"
@@ -73,3 +87,4 @@
     }
   }
 }
+
