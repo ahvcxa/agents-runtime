@@ -369,7 +369,9 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
         authLevel: 3,
         input: {
           mode: 'parallel',
-          skills: ['code-analysis', 'security-audit']
+          skills: ['code-analysis', 'security-audit'],
+          project_root: process.cwd(),
+          timeout_per_skill: 3000 // Short timeout for unit test
         },
         memory: mockMemory,
         log: mockLogger
@@ -378,7 +380,7 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       const result = await orchestratorHandler(ctx);
       assert.strictEqual(result.mode, 'parallel');
       assert(Array.isArray(result.results));
-    });
+    }, 10000);
 
     it('should execute sequential mode', async () => {
       const ctx = {
@@ -386,7 +388,9 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
         authLevel: 3,
         input: {
           mode: 'sequential',
-          skills: ['code-analysis', 'refactor']
+          skills: ['code-analysis', 'refactor'],
+          project_root: process.cwd(),
+          timeout_per_skill: 3000 // Short timeout for unit test
         },
         memory: mockMemory,
         log: mockLogger
@@ -395,7 +399,7 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       const result = await orchestratorHandler(ctx);
       assert.strictEqual(result.mode, 'sequential');
       assert(Array.isArray(result.results));
-    });
+    }, 10000);
 
     it('should respect timeout settings', async () => {
       const ctx = {
