@@ -164,6 +164,36 @@
       "description":             "Consumes auto_fixable findings and produces unified diff patches."
     },
     {
+      "id":                      "test-generator",
+      "path":                    ".agents/test-generator/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 2,
+      "bounded_context":         "Testing",
+      "output_event":            "TestsGenerated",
+      "read_only":               false,
+      "description":             "Generates test cases from analysis findings for Jest, Mocha, and Vitest workflows."
+    },
+    {
+      "id":                      "doc-generator",
+      "path":                    ".agents/doc-generator/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 2,
+      "bounded_context":         "Documentation",
+      "output_event":            "DocumentationGenerated",
+      "read_only":               false,
+      "description":             "Creates project documentation such as README, API docs, and changelog outputs."
+    },
+    {
+      "id":                      "code-formatter",
+      "path":                    ".agents/code-formatter/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 2,
+      "bounded_context":         "Transformation",
+      "output_event":            "CodeFormatted",
+      "read_only":               false,
+      "description":             "Applies formatting, import optimization, and unused code cleanup in preview or apply mode."
+    },
+    {
       "id":                      "orchestrator",
       "path":                    ".agents/orchestrator/SKILL.md",
       "version":                 "1.0.0",
