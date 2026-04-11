@@ -12,7 +12,11 @@ const assert = require('assert');
 const {
   validateInput,
   validateAuthLevel,
-  validateSkillAuthLevel
+  validateSkillAuthLevel,
+  DEFAULT_RETRY_POLICY,
+  validateRetryPolicy,
+  validateConditions,
+  validateOutputProjection
 } = require('../.agents/orchestrator/lib/validator');
 
 const {
@@ -24,9 +28,32 @@ const {
 } = require('../.agents/orchestrator/lib/coordinator');
 
 const {
+  evaluateCondition,
+  collectConditionDependencies
+} = require('../.agents/orchestrator/lib/condition-evaluator');
+
+const {
+  applyOutputProjection,
+  normalizeAndDedupeFindings,
+  normalizeSeverity
+} = require('../.agents/orchestrator/lib/output-projector');
+
+const {
+  createProgressTracker
+} = require('../.agents/orchestrator/lib/progress-tracker');
+
+const {
+  parseSkillOutput,
+  classifyError,
+  isRetryableError,
+  computeRetryDelay
+} = require('../.agents/orchestrator/lib/skill-runner');
+
+const {
   aggregateResults,
   sortFindingsBySeverity,
-  generateTextReport
+  generateTextReport,
+  summarizeSeverity
 } = require('../.agents/orchestrator/lib/result-aggregator');
 
 const { execute: orchestratorHandler } = require('../.agents/orchestrator/handler');
@@ -107,6 +134,55 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
     it('should reject skill exceeding auth level', () => {
       assert.throws(() => validateSkillAuthLevel('refactor', 1), /authorization level >= 2/);
     });
+
+    it('should validate default retry policy', () => {
+      const input = validateInput({ skills: ['code-analysis'] });
+      assert.deepStrictEqual(input.retry_policy, DEFAULT_RETRY_POLICY);
+    });
+
+    it('should allow disabling retries with false', () => {
+      const policy = validateRetryPolicy(false);
+      assert.strictEqual(policy.enabled, false);
+      assert.strictEqual(policy.max_attempts, 1);
+    });
+
+    it('should reject invalid retry policy values', () => {
+      assert.throws(
+        () => validateRetryPolicy({ max_attempts: 0 }),
+        /max_attempts/
+      );
+    });
+
+    it('should validate conditions map', () => {
+      const conditions = validateConditions({
+        refactor: {
+          all: [
+            { path: 'results.code-analysis.status', op: '==', value: 'success' },
+            { path: 'results.code-analysis.output.findings', op: 'exists' }
+          ]
+        }
+      });
+
+      assert(conditions.refactor);
+      assert(Array.isArray(conditions.refactor.all));
+    });
+
+    it('should reject malformed condition', () => {
+      assert.throws(
+        () => validateConditions({ refactor: { op: '==', value: 'ok' } }),
+        /must include a leaf rule/
+      );
+    });
+
+    it('should validate output projection', () => {
+      const projection = validateOutputProjection({
+        default: ['summary', 'findings'],
+        'code-analysis': ['summary']
+      });
+
+      assert.deepStrictEqual(projection.default, ['summary', 'findings']);
+      assert.deepStrictEqual(projection['code-analysis'], ['summary']);
+    });
   });
 
   // ─── COORDINATOR TESTS ───────────────────────────────────────────────────
@@ -164,6 +240,171 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       };
       const sorted = topologicalSort(skills, deps);
       assert(sorted.indexOf('code-analysis') < sorted.indexOf('refactor'));
+    });
+
+    it('should include condition dependencies in workflow', () => {
+      const workflow = buildWorkflow(
+        ['code-analysis', 'security-audit', 'refactor'],
+        'sequential',
+        {
+          conditions: {
+            refactor: {
+              path: 'results.security-audit.status',
+              op: '==',
+              value: 'success'
+            }
+          }
+        }
+      );
+
+      assert(workflow.dependencies.refactor.includes('security-audit'));
+      assert(workflow.order.indexOf('security-audit') < workflow.order.indexOf('refactor'));
+    });
+  });
+
+  // ─── CONDITION EVALUATOR TESTS ─────────────────────────────────────────────
+
+  describe('Condition Evaluator Module', () => {
+    it('should evaluate simple true condition', () => {
+      const result = evaluateCondition(
+        { path: 'results.code-analysis.status', op: '==', value: 'success' },
+        {
+          results: {
+            'code-analysis': { status: 'success' }
+          }
+        }
+      );
+
+      assert.strictEqual(result.passed, true);
+    });
+
+    it('should evaluate logical any condition', () => {
+      const result = evaluateCondition(
+        {
+          any: [
+            { path: 'results.code-analysis.status', op: '==', value: 'failed' },
+            { path: 'results.security-audit.status', op: '==', value: 'success' }
+          ]
+        },
+        {
+          results: {
+            'code-analysis': { status: 'success' },
+            'security-audit': { status: 'success' }
+          }
+        }
+      );
+
+      assert.strictEqual(result.passed, true);
+    });
+
+    it('should collect condition dependencies', () => {
+      const deps = collectConditionDependencies(
+        {
+          all: [
+            { path: 'results.code-analysis.status', op: '==', value: 'success' },
+            { path: 'results.security-audit.output.findings', op: 'exists' }
+          ]
+        },
+        ['code-analysis', 'security-audit', 'refactor']
+      );
+
+      assert(deps.includes('code-analysis'));
+      assert(deps.includes('security-audit'));
+    });
+  });
+
+  // ─── OUTPUT PROJECTOR TESTS ────────────────────────────────────────────────
+
+  describe('Output Projector Module', () => {
+    it('should project output paths by skill', () => {
+      const output = {
+        summary: { status: 'ok' },
+        findings: [{ id: 'a' }],
+        metadata: { files: 10 }
+      };
+
+      const projected = applyOutputProjection('code-analysis', {
+        default: ['summary'],
+        'code-analysis': ['summary', 'findings']
+      }, output);
+
+      assert(projected.summary);
+      assert(Array.isArray(projected.findings));
+      assert.strictEqual(projected.metadata, undefined);
+    });
+
+    it('should normalize unknown severity to INFO', () => {
+      assert.strictEqual(normalizeSeverity('critical'), 'CRITICAL');
+      assert.strictEqual(normalizeSeverity('unknown'), 'INFO');
+    });
+
+    it('should dedupe repeated findings', () => {
+      const deduped = normalizeAndDedupeFindings([
+        { file: 'a.js', line_start: 1, message: 'dup', severity: 'high' },
+        { file: 'a.js', line_start: 1, message: 'dup', severity: 'HIGH' },
+        { file: 'b.js', line_start: 2, message: 'new', severity: 'low' }
+      ]);
+
+      assert.strictEqual(deduped.length, 2);
+      assert.strictEqual(deduped[0].severity, 'HIGH');
+    });
+  });
+
+  // ─── SKILL RUNNER HELPERS TESTS ────────────────────────────────────────────
+
+  describe('Skill Runner Helpers', () => {
+    it('should parse skill output from CLI wrapper', () => {
+      const raw = [
+        '--- Skill Result ---',
+        '{"ok":true,"summary":{"status":"ok"}}',
+        'Status: SUCCESS'
+      ].join('\n');
+
+      const parsed = parseSkillOutput(raw);
+      assert.strictEqual(parsed.ok, true);
+    });
+
+    it('should classify retryable errors correctly', () => {
+      const timeoutError = new Error('execution timeout happened');
+      assert.strictEqual(classifyError(timeoutError), 'timeout');
+      assert.strictEqual(isRetryableError('timeout'), true);
+      assert.strictEqual(isRetryableError('process'), false);
+    });
+
+    it('should compute bounded retry delay', () => {
+      const delay = computeRetryDelay(3, {
+        base_delay_ms: 100,
+        max_delay_ms: 200,
+        multiplier: 3,
+        jitter: false
+      });
+
+      assert.strictEqual(delay, 200);
+    });
+  });
+
+  // ─── PROGRESS TRACKER TESTS ────────────────────────────────────────────────
+
+  describe('Progress Tracker Module', () => {
+    it('should track completed steps and summary', () => {
+      let nowValue = 1000;
+      const tracker = createProgressTracker({
+        workflowId: 'wf-1',
+        totalSkills: 2,
+        log: () => {},
+        now: () => nowValue
+      });
+
+      nowValue = 1300;
+      tracker.onResult({ skill_id: 'code-analysis', status: 'success' });
+      nowValue = 1800;
+      tracker.onResult({ skill_id: 'refactor', status: 'failed' });
+
+      const summary = tracker.summary();
+      assert.strictEqual(summary.completed, 2);
+      assert.strictEqual(summary.total, 2);
+      assert.strictEqual(summary.finished, true);
+      assert.strictEqual(summary.failed, 1);
     });
   });
 
@@ -241,8 +482,49 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       ];
       const summary = aggregateResults(results);
       assert.strictEqual(summary.findings_by_severity.CRITICAL, 1);
-      assert.strictEqual(summary.findings_by_severity.HIGH, 2);
+      assert.strictEqual(summary.findings_by_severity.HIGH, 1);
       assert.strictEqual(summary.findings_by_severity.MEDIUM, 1);
+    });
+
+    it('should dedupe findings during aggregation', () => {
+      const results = [
+        {
+          skill_id: 'security-audit',
+          status: 'success',
+          output: {
+            findings: [
+              { file: 'a.js', line_start: 1, message: 'dup', severity: 'HIGH' },
+              { file: 'a.js', line_start: 1, message: 'dup', severity: 'high' }
+            ],
+            summary: {}
+          },
+          raw_output: {
+            findings: [
+              { file: 'a.js', line_start: 1, message: 'dup', severity: 'HIGH' },
+              { file: 'a.js', line_start: 1, message: 'dup', severity: 'high' }
+            ],
+            summary: {}
+          },
+          duration_ms: 10,
+          error: null
+        }
+      ];
+
+      const summary = aggregateResults(results);
+      assert.strictEqual(summary.aggregated_findings.length, 1);
+      assert.strictEqual(summary.findings_by_severity.HIGH, 1);
+    });
+
+    it('should summarize severities with normalization', () => {
+      const counts = summarizeSeverity([
+        { severity: 'critical' },
+        { severity: 'HIGH' },
+        { severity: 'unknown' }
+      ]);
+
+      assert.strictEqual(counts.CRITICAL, 1);
+      assert.strictEqual(counts.HIGH, 1);
+      assert.strictEqual(counts.INFO, 1);
     });
 
     it('should determine workflow status as partial', () => {
@@ -363,6 +645,20 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       assert(typeof result.aggregated_summary.total_duration_ms === 'number');
     });
 
+    it('should include progress summary', async () => {
+      const ctx = {
+        agentId: 'test-orchestrator',
+        authLevel: 3,
+        input: { skills: ['code-analysis'] },
+        memory: mockMemory,
+        log: mockLogger
+      };
+
+      const result = await orchestratorHandler(ctx);
+      assert(result.progress_summary);
+      assert.strictEqual(typeof result.progress_summary.percentage, 'number');
+    });
+
     it('should execute parallel mode', async () => {
       const ctx = {
         agentId: 'test-orchestrator',
@@ -399,6 +695,58 @@ describe('Orchestrator Skill - Comprehensive Tests', () => {
       const result = await orchestratorHandler(ctx);
       assert.strictEqual(result.mode, 'sequential');
       assert(Array.isArray(result.results));
+    }, 10000);
+
+    it('should skip skill when condition fails', async () => {
+      const ctx = {
+        agentId: 'test-orchestrator',
+        authLevel: 3,
+        input: {
+          mode: 'sequential',
+          skills: ['code-analysis', 'refactor'],
+          timeout_per_skill: 3000,
+          conditions: {
+            refactor: {
+              path: 'results.code-analysis.status',
+              op: '==',
+              value: 'failed'
+            }
+          }
+        },
+        memory: mockMemory,
+        log: mockLogger
+      };
+
+      const result = await orchestratorHandler(ctx);
+      const refactor = result.results.find((entry) => entry.skill_id === 'refactor');
+      assert(refactor);
+      assert.strictEqual(refactor.status, 'skipped');
+    }, 10000);
+
+    it('should project output payload when configured', async () => {
+      const ctx = {
+        agentId: 'test-orchestrator',
+        authLevel: 3,
+        input: {
+          mode: 'parallel',
+          skills: ['code-analysis'],
+          timeout_per_skill: 3000,
+          output_projection: {
+            default: ['summary']
+          }
+        },
+        memory: mockMemory,
+        log: mockLogger
+      };
+
+      const result = await orchestratorHandler(ctx);
+      const analysis = result.results.find((entry) => entry.skill_id === 'code-analysis');
+      assert(analysis);
+      if (analysis.status === 'success') {
+        assert(analysis.output);
+        const hasOnlySummary = Object.keys(analysis.output).every((key) => key === 'summary');
+        assert.strictEqual(hasOnlySummary, true);
+      }
     }, 10000);
 
     it('should respect timeout settings', async () => {

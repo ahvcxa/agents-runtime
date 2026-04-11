@@ -115,6 +115,35 @@ describe('Orchestrator Skill - E2E Integration Tests', () => {
       const analysisResult = result.results.find(r => r.skill_id === 'code-analysis');
       assert(analysisResult);
     }, 20000);
+
+    it('should skip downstream skill when condition is false', async () => {
+      const ctx = {
+        agentId: 'test-orchestrator',
+        authLevel: 3,
+        input: {
+          mode: 'sequential',
+          skills: ['code-analysis', 'refactor'],
+          project_root: projectRoot,
+          timeout_per_skill: 8000,
+          files: ['src/engine.js'],
+          conditions: {
+            refactor: {
+              path: 'results.code-analysis.status',
+              op: '==',
+              value: 'failed'
+            }
+          }
+        },
+        memory: mockMemory,
+        log: mockLogger
+      };
+
+      const result = await orchestratorHandler(ctx);
+      const refactorResult = result.results.find((entry) => entry.skill_id === 'refactor');
+
+      assert(refactorResult);
+      assert.strictEqual(refactorResult.status, 'skipped');
+    }, 25000);
   });
 
   describe('Result Aggregation from Real Skills', () => {
@@ -159,6 +188,29 @@ describe('Orchestrator Skill - E2E Integration Tests', () => {
 
       assert(result.text_report);
       assert(typeof result.text_report === 'string');
+    }, 15000);
+
+    it('should include progress summary for completed workflow', async () => {
+      const ctx = {
+        agentId: 'test-orchestrator',
+        authLevel: 3,
+        input: {
+          mode: 'parallel',
+          skills: ['code-analysis'],
+          project_root: projectRoot,
+          timeout_per_skill: 8000,
+          files: ['src/engine.js']
+        },
+        memory: mockMemory,
+        log: mockLogger
+      };
+
+      const result = await orchestratorHandler(ctx);
+
+      assert(result.progress_summary);
+      assert.strictEqual(result.progress_summary.total, 1);
+      assert.strictEqual(result.progress_summary.completed, 1);
+      assert.strictEqual(result.progress_summary.finished, true);
     }, 15000);
   });
 

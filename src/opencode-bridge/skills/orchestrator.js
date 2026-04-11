@@ -9,7 +9,8 @@
  */
 
 const path = require('path');
-const { execute: orchestratorHandler } = require('../../.agents/orchestrator/handler');
+const orchestratorHandlerPath = path.resolve(__dirname, '../../../.agents/orchestrator/handler');
+const { execute: orchestratorHandler } = require(orchestratorHandlerPath);
 
 /**
  * Create mock context for orchestrator handler
@@ -123,6 +124,18 @@ function processOutput(result) {
       successful: result.aggregated_summary?.total_skills_success || 0,
       failed: result.aggregated_summary?.total_skills_failed || 0,
       skipped: result.aggregated_summary?.total_skills_skipped || 0
+    },
+
+    progress: result.progress_summary || {
+      completed: result.results?.length || 0,
+      total: result.results?.length || 0,
+      percentage: 100,
+      success: result.aggregated_summary?.total_skills_success || 0,
+      failed: result.aggregated_summary?.total_skills_failed || 0,
+      skipped: result.aggregated_summary?.total_skills_skipped || 0,
+      elapsed_ms: result.duration_ms || 0,
+      eta_ms: 0,
+      finished: true
     },
 
     findings: {

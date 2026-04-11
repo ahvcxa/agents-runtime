@@ -1,0 +1,219 @@
+{
+  "id": "orchestrator",
+  "version": "1.0.0",
+  "name": "Orchestrator Skill",
+  "description": "Coordinates execution of multiple agent skills in parallel or sequential mode with dependency management",
+  "type": "meta-agent",
+  "role": "Orchestrator",
+  "authorization_required_level": 3,
+  "bounded_context": "Orchestration",
+  "read_only": false,
+  "aggregate_root": "Workflow",
+  "handler": "handler.js",
+  "output_event": "WorkflowCompleted",
+  "library_modules": [
+    "lib/validator.js",
+    "lib/coordinator.js",
+    "lib/parallel-executor.js",
+    "lib/sequential-executor.js",
+    "lib/result-aggregator.js",
+    "lib/skill-runner.js",
+    "lib/condition-evaluator.js",
+    "lib/output-projector.js",
+    "lib/progress-tracker.js"
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": ["parallel", "sequential"],
+        "default": "parallel",
+        "description": "Execution mode: parallel or sequential"
+      },
+      "skills": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of skill IDs to execute"
+      },
+      "project_root": {
+        "type": "string",
+        "description": "Project root directory path"
+      },
+      "timeout_per_skill": {
+        "type": "number",
+        "default": 30000,
+        "minimum": 1000,
+        "maximum": 300000,
+        "description": "Timeout per skill in milliseconds"
+      },
+      "dry_run": {
+        "type": "boolean",
+        "default": true,
+        "description": "Don't write files if true"
+      },
+      "skip_on_error": {
+        "type": "boolean",
+        "default": true,
+        "description": "Continue on skill failure if true"
+      },
+      "retry_policy": {
+        "type": ["object", "boolean"],
+        "description": "Retry configuration. Use false to disable retries"
+      },
+      "conditions": {
+        "type": "object",
+        "description": "Optional per-skill conditional execution rules"
+      },
+      "output_projection": {
+        "type": ["object", "array"],
+        "description": "Select output paths per skill for compact results"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "workflow_id": {
+        "type": "string",
+        "description": "Unique workflow identifier (UUID-v4)"
+      },
+      "mode": {
+        "type": "string",
+        "enum": ["parallel", "sequential"]
+      },
+      "status": {
+        "type": "string",
+        "enum": ["success", "partial", "failed", "error"]
+      },
+      "duration_ms": {
+        "type": "number"
+      },
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_id": { "type": "string" },
+            "status": { "type": "string" },
+            "output": { "type": "object" },
+            "duration_ms": { "type": "number" },
+            "error": { "type": ["string", "null"] }
+          }
+        }
+      },
+      "aggregated_summary": {
+        "type": "object",
+        "properties": {
+          "workflow_status": { "type": "string" },
+          "total_skills_executed": { "type": "number" },
+          "total_skills_success": { "type": "number" },
+          "total_skills_failed": { "type": "number" },
+          "total_duration_ms": { "type": "number" },
+          "aggregated_findings": { "type": "array" },
+          "findings_by_severity": {
+            "type": "object",
+            "properties": {
+              "CRITICAL": { "type": "number" },
+              "HIGH": { "type": "number" },
+              "MEDIUM": { "type": "number" },
+              "LOW": { "type": "number" },
+              "INFO": { "type": "number" }
+            }
+          }
+        }
+      },
+      "progress_summary": {
+        "type": "object",
+        "properties": {
+          "completed": { "type": "number" },
+          "total": { "type": "number" },
+          "percentage": { "type": "number" },
+          "success": { "type": "number" },
+          "failed": { "type": "number" },
+          "skipped": { "type": "number" },
+          "elapsed_ms": { "type": "number" },
+          "eta_ms": { "type": "number" },
+          "finished": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "skill_metadata": {
+    "supported_skills": [
+      {
+        "id": "code-analysis",
+        "auth_level": 1,
+        "type": "read"
+      },
+      {
+        "id": "security-audit",
+        "auth_level": 1,
+        "type": "read"
+      },
+      {
+        "id": "refactor",
+        "auth_level": 2,
+        "type": "write",
+        "depends_on": ["code-analysis"]
+      },
+      {
+        "id": "test-generator",
+        "auth_level": 2,
+        "type": "write",
+        "depends_on": ["code-analysis"]
+      },
+      {
+        "id": "doc-generator",
+        "auth_level": 2,
+        "type": "write",
+        "depends_on": ["code-analysis"]
+      },
+      {
+        "id": "code-formatter",
+        "auth_level": 2,
+        "type": "write"
+      },
+      {
+        "id": "file-operations",
+        "auth_level": 1,
+        "type": "read"
+      },
+      {
+        "id": "http-request",
+        "auth_level": 1,
+        "type": "read"
+      },
+      {
+        "id": "data-transform",
+        "auth_level": 1,
+        "type": "read"
+      },
+      {
+        "id": "logging",
+        "auth_level": 1,
+        "type": "write"
+      },
+      {
+        "id": "system-command",
+        "auth_level": 2,
+        "type": "write"
+      }
+    ]
+  },
+  "execution_guarantees": {
+    "idempotency": true,
+    "atomicity": false,
+    "consistency": true,
+    "isolation": true
+  },
+  "tags": [
+    "orchestration",
+    "workflow",
+    "meta-agent",
+    "parallel-execution",
+    "dependency-management"
+  ]
+}

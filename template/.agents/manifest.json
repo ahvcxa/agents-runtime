@@ -162,6 +162,16 @@
       "output_event":            "RefactoringProposed",
       "read_only":               false,
       "description":             "Consumes auto_fixable findings and produces unified diff patches."
+    },
+    {
+      "id":                      "orchestrator",
+      "path":                    ".agents/orchestrator/SKILL.md",
+      "version":                 "1.0.0",
+      "authorization_required_level": 3,
+      "bounded_context":         "Orchestration",
+      "output_event":            "WorkflowCompleted",
+      "read_only":               false,
+      "description":             "Coordinates multi-skill execution with retry, conditional logic, projection, and aggregated reporting."
     }
   ],
 
