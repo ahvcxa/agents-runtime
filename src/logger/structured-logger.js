@@ -90,15 +90,14 @@ class StructuredLogger {
 
     const line = JSON.stringify(sanitized) + "\n";
 
-    // Console output (colorized)
+    // Console output always goes to stderr so MCP stdio stays valid JSON.
      const prefix = `[${sanitized.event_type}]`;
-     if (entry.event_type === "SECURITY_VIOLATION" || entry.event_type === "FATAL") {
-       process.stderr.write(`${ANSI_COLORS.red}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
-     } else if (entry.event_type === "ERROR" || entry.event_type === "WARN") {
-       process.stderr.write(`${ANSI_COLORS.yellow}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
-     } else {
-       process.stdout.write(`${ANSI_COLORS.cyan}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`);
-     }
+     const lineOut = entry.event_type === "SECURITY_VIOLATION" || entry.event_type === "FATAL"
+       ? `${ANSI_COLORS.red}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`
+       : entry.event_type === "ERROR" || entry.event_type === "WARN"
+         ? `${ANSI_COLORS.yellow}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`
+         : `${ANSI_COLORS.cyan}${prefix}${ANSI_COLORS.reset} ${JSON.stringify(entry)}\n`;
+     process.stderr.write(lineOut);
 
     // File output
     try {

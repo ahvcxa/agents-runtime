@@ -4,8 +4,8 @@
   "description": "Vendor-neutral AI agent runtime engine — static analysis, OWASP security audit, and skill execution for any project",
   "main": "src/engine.js",
   "bin": {
-    "agents": "./bin/agents.js",
-    "agents-mcp": "./bin/mcp.js"
+    "agents": "bin/agents.js",
+    "agents-mcp": "bin/mcp.js"
   },
   "scripts": {
     "start": "node bin/agents.js",
